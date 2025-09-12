@@ -10,6 +10,14 @@ nonlinear contrast from GVs.
 [![Vantage](https://img.shields.io/badge/Vantage-4.8.6+-blue.svg)]()
 
 
+## Prerequisites
+Make sure you have the following software installed. 
+
+- MATLAB: R2021b or later
+- CUDA Toolkit: Version ≥ 12.0 (recommended: [CUDA 12.9.1](https://developer.nvidia.com/cuda-12-9-1-download-archive))
+- Verasonics Vantage: Version 4.0 or later
+
+
 ## How to use
 
 ### 1. Parameter Review
@@ -39,39 +47,39 @@ continuously and displayed on screen, side by side with a B-mode image.
 
 ### GUI Controls
 
-| Control               | Description |
-|-----------------------|-------------|
-| **Start Seq.**        | Starts the imaging sequence. After launching the script, the GUI window opens (if parameters are valid). When the transducer is in contact with the imaging medium, press **Start Seq.** to unpause the hardware and begin continuous acquisition. |
-| **Freeze/Unfreeze**   | Pauses or resumes the sequence. Only works after the sequence has been started with **Start Seq.** |
-| **Save Data**         | Opens the save menu to set path and filename. Requires the sequence to be frozen before saving; the current on-screen image will then be saved. |
-| **Imaging Voltage**   | Controls the transmit voltage. Start with a low voltage to avoid collapsing gas vesicles. At too low voltages, nonlinear signal in the xAM images may not appear since the GV buckling threshold is not reached. Slowly increase the voltage until nonlinear signal is observed. |
-| **Persistence**       | Controls image persistence by blending new frames with previous ones. **1.0 = only new frame (no persistence)**, **0.0 = only old frame**. Intermediate values apply a moving average for smoother, more stable images. |
-| **Dynamic Range B-mode** | Adjusts the dynamic range used for display of the B-mode image. |
-| **Dynamic Range xAM** | Adjusts the dynamic range used for display of the xAM image. |
+| Control                  | Description                                                                                                                                                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Start Seq.**           | Starts the imaging sequence. After launching the script, the GUI window opens (if parameters are valid). When the transducer is in contact with the imaging medium, press **Start Seq.** to unpause the hardware and begin continuous acquisition.                               |
+| **Freeze/Unfreeze**      | Pauses or resumes the sequence. Only works after the sequence has been started with **Start Seq.**                                                                                                                                                                               |
+| **Save Data**            | Opens the save menu to set path and filename. Requires the sequence to be frozen before saving; the current on-screen image will then be saved.                                                                                                                                  |
+| **Imaging Voltage**      | Controls the transmit voltage. Start with a low voltage to avoid collapsing gas vesicles. At too low voltages, nonlinear signal in the xAM images may not appear since the GV buckling threshold is not reached. Slowly increase the voltage until nonlinear signal is observed. |
+| **Persistence**          | Controls image persistence by blending new frames with previous ones. **1.0 = only new frame (no persistence)**, **0.0 = only old frame**. Intermediate values apply a moving average for smoother, more stable images.                                                          |
+| **Dynamic Range B-mode** | Adjusts the dynamic range used for display of the B-mode image.                                                                                                                                                                                                                  |
+| **Dynamic Range xAM**    | Adjusts the dynamic range used for display of the xAM image.                                                                                                                                                                                                                     |
 
 ### Parameter Reference
 
-| Name                   | Description                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `image_start_depth_mm` | Start depth of imaging region \[mm]                                                      |
-| `image_end_depth_mm`   | End depth of imaging region \[mm]                                                        |
-| `xwave_angles`         | xWave angle \[degrees]                                                                   |
-| `speed_of_sound`       | Speed of sound in medium (1480 m/s in water/agar, 1540 m/s in tissue)                    |
-| `image_voltage`        | Transmit voltage \[V]. Set safely to avoid GV collapse                                   |
-| `aperture_size_min`    | Minimum number of elements in active aperture (e.g. 48 for wide FOV)                     |
-| `aperture_size_max`    | Maximum number of elements in active aperture                                            |
+| Name                   | Description                                                                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `image_start_depth_mm` | Start depth of imaging region \[mm]                                                           |
+| `image_end_depth_mm`   | End depth of imaging region \[mm]                                                             |
+| `xwave_angles`         | xWave angle \[degrees]                                                                        |
+| `speed_of_sound`       | Speed of sound in medium (1480 m/s in water/agar, 1540 m/s in tissue)                         |
+| `image_voltage`        | Transmit voltage \[V]. Set safely to avoid GV collapse                                        |
+| `aperture_size_min`    | Minimum number of elements in active aperture (e.g. 48 for wide FOV)                          |
+| `aperture_size_max`    | Maximum number of elements in active aperture                                                 |
 | `transmit_apodization` | Apodization function to reduce edge waves. Options: <br> `none`, `kaiser`, `hamming`, `tukey` |
-| `fps`                  | Acquisition frame rate \[Hz]                                                             |
-| `save_path`            | Default path for saving data                                                             |
+| `fps`                  | Acquisition frame rate \[Hz]                                                                  |
+| `save_path`            | Default path for saving data                                                                  |
 
 ### Advanced options
 
-| Name                       | Description                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `num_accumulations`        | Number of RF accumulations. Increases SNR but lowers FPS and risks clipping of signals     |
-| `use_adaptive_xwave_angle` | If true, xWave angles are adapted based on imaging depth                        |
-| `use_half_pitch_scanning`  | Enables half-pitch scanning for finer sampling                                  |
-| `transmit_frequency`       | Transducer transmit frequency \[MHz]                                            |
+| Name                       | Description                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `num_accumulations`        | Number of RF accumulations. Increases SNR but lowers FPS and risks clipping of signals |
+| `use_adaptive_xwave_angle` | If true, xWave angles are adapted based on imaging depth                               |
+| `use_half_pitch_scanning`  | Enables half-pitch scanning for finer sampling                                         |
+| `transmit_frequency`       | Transducer transmit frequency \[MHz]                                                   |
 
 ### Notes
 
