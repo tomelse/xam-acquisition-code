@@ -17,8 +17,8 @@ controls.
 | **Freeze** | VSX | Pauses and resumes the sequence. Needed before **Save Data**. |
 | **High Voltage P1** | VSX | Transmit voltage. Start low and increase slowly until xAM signal appears; too high collapses the GVs. |
 | **Persistence** | `UserB6` | Blends each new image with the previous one: `1.0` shows only the new frame, lower values average over more frames. Only the display and `BFData` are smoothed; recordings and `BFData_raw` are not. |
-| **DR B-Mode** | `UserC8` | Dynamic range of the B-mode display [dB]. |
-| **DR xAM** | `UserC7` | Dynamic range of the xAM display [dB]. |
+| **DR B-Mode** | `UserC6` | Dynamic range of the B-mode display [dB]. |
+| **DR xAM** | `UserC5` | Dynamic range of the xAM display [dB]. |
 | **Save mode** | `UserB4` | What **Save Data** and **Record** save: *xAM images* (beamformed `BFData`) or *Raw RF* (receive data). The voltage sweep has its own setting (`--sweep-save`). |
 | **Save Data** | `UserC1` | Opens the save menu for a snapshot of the frozen sequence. The menu is preset for the selected save mode. |
 | **Rec. frames** | `UserC3` | Number of frames saved per recording (1-500). |
