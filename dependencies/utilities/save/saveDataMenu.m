@@ -8,12 +8,13 @@ function varargout = saveDataMenu(varargin)
     % author:  R. Waasdorp (r.waasdorp@tudelft.nl)
     % ==========================================================================
 
-    % variables
-    persistent previous_state fig
-    filename_field = [];
-    folder_field = [];
-    checkboxes = struct('vsx_pars', [], 'iqdata', [], 'rcvdata', [], 'figfig', [], ...
-        'figpng', [], 'compression', []);
+    % variables. UI handles are persistent so the open menu can be read and
+    % updated from later calls.
+    persistent previous_state fig filename_field folder_field checkboxes
+    if isempty(checkboxes)
+        checkboxes = struct('vsx_pars', [], 'iqdata', [], 'rcvdata', [], 'figfig', [], ...
+            'figpng', [], 'compression', []);
+    end
 
     % if called with one input, one output, and 'command', run cli_gateway
     if nargin == 1 && nargout == 1
@@ -30,14 +31,15 @@ function varargout = saveDataMenu(varargin)
         return
     end
 
-    % Create a figure for the GUI
-    if isempty(fig) || ~isgraphics(fig)
-        fig = uifigure('Name', 'Save Data...', 'HandleVisibility', 'on', 'Tag', 'SaveDataMenu');
-        create_components();
-        fig.Position(4) = 360;
-    else
-        figure(get_handle())
+    % Create a figure for the GUI. An open menu is rebuilt (keeping its
+    % current values), so the callbacks always use the current state.
+    if menu_is_open()
+        previous_state = get_state(previous_state);
+        delete(fig)
     end
+    fig = uifigure('Name', 'Save Data...', 'HandleVisibility', 'on', 'Tag', 'SaveDataMenu');
+    create_components();
+    fig.Position(4) = 360;
 
     % set defaults or previous state or custom defaults
     if ~isempty(previous_state) % check for previous call
@@ -135,6 +137,26 @@ function varargout = saveDataMenu(varargin)
             case 'variables'
                 reset_callback();
                 out = get_vars_to_save();
+            case 'apply_settings'
+                % apply SaveDataMenuSettings from the base workspace on top of
+                % the remembered state (keeps the folder and filename)
+                settings = evalin('base', 'SaveDataMenuSettings');
+                if menu_is_open()
+                    previous_state = get_state(previous_state); % keep values edited in the menu
+                end
+                if ~isempty(previous_state)
+                    for fn = fieldnames(settings.checkboxes).'
+                        previous_state.checkboxes.(fn{1}) = settings.checkboxes.(fn{1});
+                    end
+                    previous_state.custom_variables = settings.custom_variables;
+                    if isfield(settings, 'custom_figures')
+                        previous_state.custom_figures = settings.custom_figures;
+                    end
+                    if menu_is_open()
+                        restore_state(previous_state);
+                    end
+                end
+                out = true;
         end
     end
     % --------------------------------------------------------------------------
@@ -178,6 +200,10 @@ function varargout = saveDataMenu(varargin)
     % --------------------------------------------------------------------------
     function h = get_handle()
         h = findobj('tag', 'SaveDataMenu');
+    end
+
+    function is_open = menu_is_open()
+        is_open = ~isempty(fig) && isgraphics(fig) && ~isempty(previous_state);
     end
 
     function browse_folder_callback(~, ~)
@@ -259,7 +285,7 @@ function varargout = saveDataMenu(varargin)
         vars_to_save = get_vars_to_save();
 
         % save options
-        save_options = {};
+        save_options = {'-v7.3'}; % -nocompression is silently ignored for older formats
         if ~state.checkboxes.compression
             save_options = [save_options; '-nocompression'];
         end
@@ -308,6 +334,8 @@ function varargout = saveDataMenu(varargin)
         vars_to_save = {};
 
         if state.checkboxes.vsx_pars
+            % skip structs that are not defined (e.g. RcvProfile when left at default)
+            vars_to_save_vsx = vars_to_save_vsx(cellfun(@(v) check_if_exist('base', v) > 0, vars_to_save_vsx));
             vars_to_save = [vars_to_save; vars_to_save_vsx];
             paramw = evalin('base', 'whos(''BFConfig'', ''P'',''Pm'');');
             vars_to_save = [vars_to_save; {paramw.name}.'];

@@ -32,6 +32,8 @@
 %                               Options: 'none', 'kaiser', 'hamming', 'tukey'
 %   P.fps                    : Acquisition frame rate [Hz]
 %   P.save_path              : Default path for saving data
+%   P.record_path            : Path for recordings made with the 'Record' button
+%   P.record_num_frames      : Default number of frames per recording
 %
 % Advanced options:
 %   P.num_accumulations      : Number of RF accumulations. Increases SNR but
@@ -100,6 +102,8 @@ P.transmit_apodization = 'tukey'; % Apodization to avoid edge waves. Options: no
 P.fps = 2; % acquisition frame rate in [Hz]
 
 P.save_path = fullfile(repo_root, 'data'); % default path for data saving
+P.record_path = P.save_path; % path for recordings ('Record' button), put on a fast (NVMe) drive
+P.record_num_frames = 20; % default number of frames per recording
 
 %% =============================================================================
 % INPUT VALIDATION
@@ -612,9 +616,30 @@ UI(n_ui).Control = {'UserC7', 'Style', 'VsSlider', 'Label', 'DR xAM', ...
 UI(n_ui).Callback = {'xw_change_dr(''xam'', UIValue)'};
 n_ui = n_ui + 1;
 
-UI(n_ui).Control = {'UserC1', 'Style', 'VsPushButton', 'Label', 'Save Data'};
-UI(n_ui).Callback = {'saveDataMenu()'};
+% save mode for both 'Save Data' and 'Record': beamformed images or raw RF
+UISTATES.save_mode = 'images';
+UI(n_ui).Control = {'UserB4', 'Style', 'VsButtonGroup', 'Title', 'Save mode', ...
+                        'NumButtons', 2, 'Labels', {'xAM images', 'Raw RF'}};
+UI(n_ui).Callback = {'xw_change_save_mode(UIState)'};
 n_ui = n_ui + 1;
+
+% save a snapshot of the frozen sequence
+UI(n_ui).Control = {'UserC1', 'Style', 'VsPushButton', 'Label', 'Save Data'};
+UI(n_ui).Callback = {'xw_save_data()'};
+n_ui = n_ui + 1;
+
+% record a series of frames while running (press again to stop early)
+UISTATES.record_num_frames = P.record_num_frames;
+UI(n_ui).Control = {'UserC3', 'Style', 'VsSlider', 'Label', 'Rec. frames', ...
+                        'SliderMinMaxVal', [1, 500, UISTATES.record_num_frames], ...
+                        'SliderStep', [1 / 499, 10 / 499], 'ValueFormat', '%3.0f'};
+UI(n_ui).Callback = {'xw_change_record_frames(UIValue)'};
+n_ui = n_ui + 1;
+
+UI(n_ui).Control = {'UserC2', 'Style', 'VsPushButton', 'Label', 'Record'};
+UI(n_ui).Callback = {'xw_record_start()'};
+n_ui = n_ui + 1;
+XWRecord = struct('active', false); % recording state, see xw_record_start
 
 % configure saveDataMenu
 P.matfile_file_name = 'xAM_imaging.mat';

@@ -39,10 +39,10 @@ Other parameters that can be configured are described below.
 ### 2. Launch imaging sequence
 Run the script `xAM_imaging.m` to start imaging. The VSX GUI will pop up.
 
-VSX must be started from the root folder of the Vantage software, so run
-`activate` there first and then call the script from that folder (or `cd` to
-it inside the script before `VSX` is called). Paths to this repository are
-resolved automatically. On Vantage NXT, use the MATLAB release required by your
+VSX must be started from the root folder of the Vantage software: run
+`activate` there once per MATLAB session, and set the `cd(...)` line near the
+top of `xAM_imaging.m` to that folder. Paths to this repository are resolved
+automatically. See the [documentation](docs/index.md) for details. On Vantage NXT, use the MATLAB release required by your
 NXT version (R2024a for NXT 2.2-2.3).
 
 Note: the beamformer `MLBFXWave` is currently only available as a Windows
@@ -61,6 +61,9 @@ continuously and displayed on screen, side by side with a B-mode image.
 | **Start Seq.**           | Starts the imaging sequence. After launching the script, the GUI window opens (if parameters are valid). When the transducer is in contact with the imaging medium, press **Start Seq.** to unpause the hardware and begin continuous acquisition.                               |
 | **Freeze/Unfreeze**      | Pauses or resumes the sequence. Only works after the sequence has been started with **Start Seq.**                                                                                                                                                                               |
 | **Save Data**            | Opens the save menu to set path and filename. Requires the sequence to be frozen before saving; the current on-screen image will then be saved.                                                                                                                                  |
+| **Save mode**            | Selects what **Save Data** and **Record** save: beamformed images (`BFData`) or raw RF data (`RcvData`). |
+| **Record**               | While the sequence is running, saves the next **Rec. frames** frames to a new folder in `P.record_path`, with `acq_parameters.mat` and `recording_info.mat` (frame time tags, file layout). Raw RF is appended to one binary file, `rf_data.bin` (int16, ~190 MB per frame with the default settings, so use a fast drive); load it with `xw_load_rf_recording(folder, frames)`. Images are saved as one `-v7.3` file per frame. Press again to stop early. |
+| **Rec. frames**          | Number of frames saved per recording. |
 | **Imaging Voltage**      | Controls the transmit voltage. Start with a low voltage to avoid collapsing gas vesicles. At too low voltages, nonlinear signal in the xAM images may not appear since the GV buckling threshold is not reached. Slowly increase the voltage until nonlinear signal is observed. |
 | **Persistence**          | Controls image persistence by blending new frames with previous ones. **1.0 = only new frame (no persistence)**, **0.0 = only old frame**. Intermediate values apply a moving average for smoother, more stable images.                                                          |
 | **Dynamic Range B-mode** | Adjusts the dynamic range used for display of the B-mode image.                                                                                                                                                                                                                  |
@@ -80,6 +83,8 @@ continuously and displayed on screen, side by side with a B-mode image.
 | `transmit_apodization` | Apodization function to reduce edge waves. Options: <br> `none`, `kaiser`, `hamming`, `tukey` |
 | `fps`                  | Acquisition frame rate \[Hz]                                                                  |
 | `save_path`            | Default path for saving data                                                                  |
+| `record_path`          | Path for recordings made with the **Record** button (put this on a fast drive)               |
+| `record_num_frames`    | Default number of frames per recording                                                        |
 
 ### Advanced options
 

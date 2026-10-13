@@ -112,10 +112,13 @@ function BFData = xw_beamform_run(RFData)
     if checkmode('xAM'); BFData.xAM = MLBFXWave(BFC, RFStruct.XW_AM, LUTStruct.TX, LUTStruct.RX); end
     BFData.TimeTag = TimeTag; % keep time tag with bf'd data.
 
+    % save frame to disk if recording
+    xw_record_frame(RFData, BFData);
+
     % apply persistence if set.
+    assignin('base', 'BFData_raw', BFData); % raw BFData without persistence
     persistence = evalin('base', 'UISTATES.persistence');
     if persistence < 1
-        assignin('base', 'BFData_raw', BFData); % assigin raw BFData without persistence
         BFData_prev = evalin('base', 'BFData');
         pfun = @(b, b_prev, f, p) p * b.(f) + (1 - p) * b_prev.(f);
         if checkmode('PW'); BFData.PW = pfun(BFData, BFData_prev, 'PW', persistence); end

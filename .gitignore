@@ -6,4 +6,13 @@
 *.jpeg
 
 !doc/img/*.png
+!docs/assets/img/*.png
 dependencies/dev/
+# recorded / saved data
+data/
+*.bin
+
+# jekyll docs build
+docs/.jekyll-cache/
+docs/_site/
+docs/Gemfile.lock

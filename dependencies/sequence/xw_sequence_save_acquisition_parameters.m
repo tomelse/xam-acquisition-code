@@ -1,4 +1,6 @@
-function xw_sequence_save_acquisition_parameters()
+function xw_sequence_save_acquisition_parameters(save_path)
+    % Save the sequence definition structs. Default location is
+    % P.save_path/<matfile name>_ACQ_PARAMETERS.mat, or pass save_path.
 
     % get stuff from workspace
     P = evalin('base', 'P');
@@ -20,9 +22,11 @@ function xw_sequence_save_acquisition_parameters()
     % skip variables that are not defined (e.g. RcvProfile when left at default)
     VarsToSave = VarsToSave(cellfun(@(v) check_if_exist('base', v) > 0, VarsToSave));
 
-    if ~isfolder(P.save_path); mkdir(P.save_path); end
-    [~, base_name] = fileparts(P.matfile_file_name);
-    save_path = fullfile(P.save_path, [base_name '_ACQ_PARAMETERS.mat']);
+    if nargin < 1
+        [~, base_name] = fileparts(P.matfile_file_name);
+        save_path = fullfile(P.save_path, [base_name '_ACQ_PARAMETERS.mat']);
+    end
+    if ~isfolder(fileparts(save_path)); mkdir(fileparts(save_path)); end
 
     % and save (and set saving display)
     varStr = char(join(compose('''%s'',', string(VarsToSave))));

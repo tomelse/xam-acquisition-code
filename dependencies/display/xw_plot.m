@@ -67,6 +67,11 @@ function xw_plot(P, BFData)
         dt = diff(time_tag_array);
         fps = 1 ./ mean(dt, 'omitnan');
         fps_tit.String = sprintf('Frame rate: %.2f fps', fps);
+        XWRecord = evalin_if_exist('base', 'XWRecord', struct('active', false));
+        if XWRecord.active
+            fps_tit.String = sprintf('%s  |  REC %i/%i (%s)', fps_tit.String, ...
+                XWRecord.frame_count, XWRecord.num_frames, XWRecord.mode);
+        end
 
         % update figure with new data
         for k = 1:nmodes
