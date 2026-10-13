@@ -49,7 +49,7 @@ NXT version (R2024a for NXT 2.2-2.3).
 Note: the beamformer `MLBFXWave` is currently only available as a Windows
 binary (`.mexw64`).
 
-![VSX gui](doc/img/vsx_gui.png)
+![VSX gui](docs/assets/img/vsx_control.png)
 
 When it is safe, if the ultrasound transducer is in contact with the phantom,
 water or other, press the button "Start Sequence". Next, xAM data will be acquired
