@@ -50,9 +50,5 @@ of the aperture, nonlinear *propagation* artifacts are suppressed as well. See:
 | [Troubleshooting](troubleshooting.md) | Known errors and their fixes |
 | [Code reference](code-reference.md) | What each function does |
 
-## Authors
-
-- Rick Waasdorp (r.waasdorp@tudelft.nl)
-- David Maresca (d.maresca@tudelft.nl)
 
 Licensed under the MIT licence.
