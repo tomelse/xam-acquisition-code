@@ -55,6 +55,11 @@ When it is safe, if the ultrasound transducer is in contact with the phantom,
 water or other, press the button "Start Sequence". Next, xAM data will be acquired
 continuously and displayed on screen, side by side with a B-mode image. 
 
+### Testing
+Run `tests/run_tests.sh` to test all features without user input: unit tests and
+an integration test that drives the VSX GUI in simulation (`--hardware` to run it
+on the Vantage). See the [testing documentation](docs/testing.md).
+
 ### GUI Controls
 
 | Control                  | Description                                                                                                                                                                                                                                                                      |

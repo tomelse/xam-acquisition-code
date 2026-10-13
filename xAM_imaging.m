@@ -110,6 +110,7 @@ P.transmit_apodization = 'tukey'; % Apodization to avoid edge waves. Options: no
 P.fps = 2; % acquisition frame rate in [Hz]
 
 P.save_path = fullfile(repo_root, 'data'); % default path for data saving
+if ~isempty(getenv('XAM_DATA_PATH')); P.save_path = getenv('XAM_DATA_PATH'); end % e.g. set by tests/run_tests.sh
 P.record_path = P.save_path; % path for recordings ('Record' button), put on a fast (NVMe) drive
 P.record_num_frames = 20; % default number of frames per recording
 

@@ -47,6 +47,7 @@ of the aperture, nonlinear *propagation* artifacts are suppressed as well. See:
 | [Voltage sweep](voltage-sweep.md) | Finding the best imaging voltage for GVs |
 | [Performance](performance.md) | Frame-rate budget and measured save/reconstruction times |
 | [Simulation mode](simulation.md) | Testing without hardware, and what to expect |
+| [Testing](testing.md) | Running all tests with one command |
 | [Troubleshooting](troubleshooting.md) | Known errors and their fixes |
 | [Code reference](code-reference.md) | What each function does |
 
