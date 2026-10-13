@@ -19,9 +19,10 @@ controls.
 | **Persistence** | `UserB6` | Blends each new image with the previous one: `1.0` shows only the new frame, lower values average over more frames. Only the display and `BFData` are smoothed; recordings and `BFData_raw` are not. |
 | **DR B-Mode** | `UserC8` | Dynamic range of the B-mode display [dB]. |
 | **DR xAM** | `UserC7` | Dynamic range of the xAM display [dB]. |
-| **Save mode** | `UserB4` | What **Save Data** and **Record** save: *xAM images* (beamformed `BFData`) or *Raw RF* (receive data). |
+| **Save mode** | `UserB4` | What **Save Data** and **Record** save: *xAM images* (beamformed `BFData`) or *Raw RF* (receive data). The voltage sweep has its own setting (`--sweep-save`). |
 | **Save Data** | `UserC1` | Opens the save menu for a snapshot of the frozen sequence. The menu is preset for the selected save mode. |
 | **Rec. frames** | `UserC3` | Number of frames saved per recording (1-500). |
+| **Voltage sweep** | `UserB2` | Only with `run_xam.sh --sweep`. Starts a voltage sweep; press again to stop it. See [Voltage sweep](voltage-sweep.md). |
 | **Record** | `UserC2` | While running, saves the next **Rec. frames** frames. Press again to stop early. The image window title shows `REC k/N` during a recording. |
 
 ## Image window

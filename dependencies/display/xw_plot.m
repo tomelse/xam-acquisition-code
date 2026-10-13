@@ -67,6 +67,12 @@ function xw_plot(P, BFData)
         dt = diff(time_tag_array);
         fps = 1 ./ mean(dt, 'omitnan');
         fps_tit.String = sprintf('Frame rate: %.2f fps', fps);
+        XWSweep = evalin_if_exist('base', 'XWSweep', struct('active', false));
+        if XWSweep.active
+            p = XWSweep.steps(XWSweep.step, 1); vi = XWSweep.steps(XWSweep.step, 2);
+            fps_tit.String = sprintf('%s  |  SWEEP pass %i/%i, %.2f V (%i/%i), %s', fps_tit.String, p, XWSweep.passes, ...
+                XWSweep.hv_set(p, vi), vi, numel(XWSweep.voltages), XWSweep.phase);
+        end
         XWRecord = evalin_if_exist('base', 'XWRecord', struct('active', false));
         if XWRecord.active
             fps_tit.String = sprintf('%s  |  REC %i/%i (%s)', fps_tit.String, ...

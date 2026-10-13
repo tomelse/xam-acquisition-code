@@ -69,11 +69,17 @@ function BFData = xw_beamform_run(RFData)
     end
 
     % setup image reconstruction configuration.
-    persistent BFC
+    persistent BFC beamform
     if isempty(BFC)
         warning OFF ParseStruct:notExistOrEmpty
-        if exist('MLBFXWave', 'file') ~= 3 % 3 = compiled mex
-            error('MLBFXWave:notfound', 'Could not find MLBFXWave, which is the C++ beamformer. Contact r.waasdorp@tudelft.nl')
+        if isfield(P, 'use_cpu_beamformer') && P.use_cpu_beamformer
+            beamform = @xw_beamform_cpu; % slow MATLAB stand-in
+            fprintf('Using the CPU stand-in beamformer (xw_beamform_cpu)\n');
+        elseif exist('MLBFXWave', 'file') == 3 % 3 = compiled mex
+            beamform = @MLBFXWave;
+        else
+            error('MLBFXWave:notfound', ['Could not find MLBFXWave, which is the C++ beamformer. Contact r.waasdorp@tudelft.nl.\n' ...
+                'To use the slow CPU stand-in instead, set P.use_cpu_beamformer = true or run with XAM_CPU_BEAMFORMER=1.'])
         end
         BFC.XPiezo = Trans.ElementPos(:, 1) * 1e-3; % in m
         BFC.ZPiezo = 0 * BFC.XPiezo;
@@ -104,16 +110,17 @@ function BFData = xw_beamform_run(RFData)
 
     % Run image reconstruction
     if checkmode('PW')
-        PW_L = MLBFXWave(BFC, RFStruct.PW_L, LUTStruct.TX, LUTStruct.RX);
-        PW_R = MLBFXWave(BFC, RFStruct.PW_R, LUTStruct.TX, LUTStruct.RX);
+        PW_L = beamform(BFC, RFStruct.PW_L, LUTStruct.TX, LUTStruct.RX);
+        PW_R = beamform(BFC, RFStruct.PW_R, LUTStruct.TX, LUTStruct.RX);
         BFData.PW = PW_R + PW_L; % sum left and right plane waves for compound image
     end
-    if checkmode('xBmode'); BFData.xBmode = MLBFXWave(BFC, RFStruct.XW, LUTStruct.TX, LUTStruct.RX); end
-    if checkmode('xAM'); BFData.xAM = MLBFXWave(BFC, RFStruct.XW_AM, LUTStruct.TX, LUTStruct.RX); end
+    if checkmode('xBmode'); BFData.xBmode = beamform(BFC, RFStruct.XW, LUTStruct.TX, LUTStruct.RX); end
+    if checkmode('xAM'); BFData.xAM = beamform(BFC, RFStruct.XW_AM, LUTStruct.TX, LUTStruct.RX); end
     BFData.TimeTag = TimeTag; % keep time tag with bf'd data.
 
-    % save frame to disk if recording
+    % save frame to disk if recording, and advance a voltage sweep
     xw_record_frame(RFData, BFData);
+    xw_sweep_frame(BFData);
 
     % apply persistence if set.
     assignin('base', 'BFData_raw', BFData); % raw BFData without persistence

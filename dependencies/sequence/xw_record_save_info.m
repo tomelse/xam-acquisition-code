@@ -11,11 +11,14 @@ function info = xw_record_save_info(XWRecord)
     info.host_times = XWRecord.host_times(1:n); % host clock when frame was saved [posix s]
     info.fps_nominal = P.fps;
     if strcmp(XWRecord.mode, 'rf')
-        info.rf_file = XWRecord.rf_file;
+        info.frame_files = XWRecord.frame_files; % sprintf pattern, one file per frame
         info.frame_size = XWRecord.frame_size; % [rows, channels] per frame
         info.data_class = 'int16';
         info.byte_order = XWRecord.byte_order;
-        info.layout = '[rows, channels, frames], column-major (MATLAB order), frames appended';
+        info.layout = 'one file per frame, [rows, channels], column-major (MATLAB order)';
+        if isfield(XWRecord, 'failed_frames')
+            info.failed_frames = XWRecord.failed_frames; % frames that could not be written
+        end
     end
     save(fullfile(XWRecord.folder, 'recording_info.mat'), '-struct', 'info', '-v7');
 end

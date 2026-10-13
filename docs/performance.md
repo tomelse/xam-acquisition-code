@@ -1,6 +1,6 @@
 ---
 title: Performance
-nav_order: 8
+nav_order: 9
 ---
 
 # Performance
@@ -34,8 +34,8 @@ Use them as a guide; other machines will differ.
 
 | Method | Time per frame | Throughput |
 | --- | --- | --- |
-| Raw `fwrite`, appended to one file (used by **Record**) | 23-33 ms | ~7 GB/s, sustained over 113 GB |
-| Raw `fwrite` on a background thread | 0.6 ms blocking | limited by the drive |
+| Raw `fwrite`, one file per frame, on background threads (used by **Record**) | ~1-2 ms blocking | 30 fps (5.6 GB/s) sustained over 28 GB |
+| Raw `fwrite`, appended to one file, synchronous | 23-33 ms | ~7 GB/s, sustained over 113 GB |
 | `save -v6` (uncompressed) | 53 ms | 3.5 GB/s |
 | `save -v7.3 -nocompression` (used by **Save Data**) | 110 ms | 1.7 GB/s, sustained over 28 GB |
 | `save -v7` / `-v7.3` (compressed) | 2.4-3.0 s | 60-80 MB/s |
@@ -63,11 +63,20 @@ about 90 ms per image is spent on IQ demodulation.
 
 | Configuration | Time per frame | Maximum frame rate |
 | --- | --- | --- |
-| CPU beamforming + raw RF recording | ~690 ms | ~1.4 Hz |
-| GPU beamforming, no saving | ~75 ms | ~13 Hz |
-| GPU beamforming + raw RF recording | ~100 ms | ~10 Hz |
-| GPU beamforming + `-v7.3` RF saving | ~185 ms | ~5 Hz |
-| GPU split and beamforming + raw RF on a background thread | ~30 ms | 20-30 Hz |
+| CPU beamforming, with or without RF recording | ~660 ms | ~1.5 Hz |
+| GPU beamforming (CPU split), with or without RF recording | ~75 ms | ~13 Hz |
+| GPU split and beamforming, with or without RF recording | ~32 ms | ~30 Hz |
+| For comparison: GPU beamforming + synchronous `-v7.3` RF saving | ~185 ms | ~5 Hz |
+
+RF recording runs on background threads and adds only ~1-2 ms per frame, so
+it no longer limits the frame rate. It was tested at 30 fps for 150 frames
+(28 GB) with 16 ms of emulated beamforming per frame, without slowing down.
+
+At most `P.num_rf_frames − 2` (= 2) frame writes are allowed to run on. If
+the drive falls behind, processing waits for the oldest write, and the frame
+rate drops rather than risking data being overwritten in the receive buffer.
+Recording also warms up the background threads when **Record** is pressed
+(~0.6 s the first time in a session).
 
 Not included: the transfer of each frame from the Vantage to the host, which
 overlaps with processing of the previous frame and depends on the system.

@@ -26,6 +26,22 @@ All parameters are set near the top of `xAM_imaging.m`, in the struct `P`
 | `P.record_path` | `P.save_path` | Folder for **Record** recordings. Raw RF is ~190 MB per frame, so use a fast drive. |
 | `P.record_num_frames` | `20` | Initial value of the **Rec. frames** slider. |
 
+## Voltage sweep
+
+See [Voltage sweep](voltage-sweep.md). The voltages and frames per voltage are
+normally set with `run_xam.sh --sweep` and `--sweep-frames`.
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `P.sweep_voltages` | from `--sweep` | Voltages to sweep [V]. Empty: no sweep, no **Voltage sweep** button. |
+| `P.sweep_passes` | `2` | Passes through the voltages. |
+| `P.sweep_frames` | `5` (or `--sweep-frames`) | Frames recorded and measured per voltage. |
+| `P.sweep_save_mode` | `'images'` (or `--sweep-save`) | Saved per voltage: `'images'` (~0.6 MB per frame) or `'rf'` (~190 MB per frame). |
+| `P.sweep_settle_frames` | `2` | Frames discarded after each voltage change. |
+| `P.sweep_settle_s` | `1` | Minimum settle time after a voltage increase [s]. |
+| `P.sweep_settle_s_down` | `3` | Minimum settle time after a voltage decrease [s]. |
+| `P.sweep_max_voltage` | `25` | Highest voltage a sweep may use [V]. The L22-14vX limit is 30 V. |
+
 ## Advanced
 
 | Parameter | Default | Description |
@@ -37,6 +53,7 @@ All parameters are set near the top of `xAM_imaging.m`, in the struct `P`
 | `P.beamform_image_modes` | `{'PW', 'xAM'}` | Images to reconstruct and display: `'PW'` (B-mode from L + R), `'xBmode'` (B-mode from X), `'xAM'`. |
 | `P.timetag_enabled` | `1` | Enables the hardware time tags used for the frame rate display and recording timing. |
 | `P.num_rf_frames` | `4` | Number of frames in the receive buffer. Must be at least 4. |
+| `P.use_cpu_beamformer` | `false` (`true` with `--cpu-beamformer`) | Use the slow MATLAB beamformer `xw_beamform_cpu` instead of `MLBFXWave`. |
 | `P.fNumber` | `1.28` | Receive f-number used in beamforming (optional, set in `P` to override). |
 
 ## Fixed and derived values

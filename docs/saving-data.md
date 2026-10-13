@@ -51,10 +51,12 @@ have enough free space.
 Each recording gets its own folder, `P.record_path/<yyyymmdd_HHMMSS>_<mode>/`:
 
 ```text
-20261013_145543_rf/
+20261013_151911_rf/
 ├── acq_parameters.mat     P, Resource, Trans, TW, TX, Receive, TPC, TGC, Media, UISTATES
 ├── recording_info.mat     frame count, time tags, file layout
-└── rf_data.bin            raw RF, frames appended
+├── frame_00001.bin        raw RF, one file per frame
+├── frame_00002.bin
+└── …
 
 20261013_145546_images/
 ├── acq_parameters.mat
@@ -73,18 +75,28 @@ Each recording gets its own folder, `P.record_path/<yyyymmdd_HHMMSS>_<mode>/`:
 | `time_tags` | Hardware time tag per frame [s] (zero in simulation) |
 | `host_times` | Host clock when each frame was saved [POSIX seconds] |
 | `fps_nominal` | `P.fps` |
-| `rf_file`, `frame_size`, `data_class`, `byte_order`, `layout` | RF recordings only: how `rf_data.bin` is stored |
+| `frame_files`, `frame_size`, `data_class`, `byte_order`, `layout` | RF recordings only: how the frame files are named and stored |
+| `failed_frames` | RF recordings only: frames that could not be written (normally empty) |
 
 `recording_info.mat` is written when the recording starts and updated when it
-ends, so the RF file can still be read if a recording is interrupted.
+ends, so the frame files can still be read if a recording is interrupted.
 
 ### Raw RF file format
 
-`rf_data.bin` contains the receive frames back to back, without a header:
+Each `frame_#####.bin` holds one receive frame, without a header:
 
 - type `int16`, byte order as in `byte_order` (`ieee-le` on x86 PCs);
-- each frame is `frame_size = [rows, 128]` in column-major (MATLAB) order;
-- the whole file is `[rows, 128, frames]`.
+- `frame_size = [rows, 128]` in column-major (MATLAB) order (188 MB with the
+  default settings).
+
+Frames are written on background threads, so writing overlaps with processing
+of the next frames and costs the acquisition only about 1 ms per frame. If a
+frame cannot be written (for example, the disk is full), the recording stops,
+the reason is printed, and the frame is listed in `failed_frames`.
+
+Recordings made before the switch to background writing have all frames in a
+single `rf_data.bin` (`rf_file` in `recording_info.mat`). `xw_load_rf_recording`
+reads both formats.
 
 The row layout within a frame is described in
 [How it works](how-it-works.md#rf-data-layout).
@@ -102,8 +114,8 @@ acq = load(fullfile(folder, 'acq_parameters.mat')); % P, Receive, Trans, ...
 
 `RF` is `int16 [rows × 128 × frames]`, the same layout as `RcvData{1}`, so a
 frame can be passed directly to `xw_beamform_run` for offline
-reconstruction. The loader uses `memmapfile`, so loading single frames from
-large recordings is fast, and only complete frames are read.
+reconstruction. Only complete frame files are read; asking for a missing or
+incomplete frame gives an error that lists the frames that are available.
 
 ### Loading RF recordings in Python
 
@@ -111,16 +123,17 @@ large recordings is fast, and only complete frames are read.
 import numpy as np
 from scipy.io import loadmat
 
-folder = "/path/to/data/20261013_145543_rf"
+folder = "/path/to/data/20261013_151911_rf"
 info = loadmat(f"{folder}/recording_info.mat", squeeze_me=True)
 rows, channels = (int(n) for n in info["frame_size"])
 
-# MATLAB [rows, channels, frames] (column-major) == numpy (frames, channels, rows)
-rf = np.memmap(f"{folder}/rf_data.bin", dtype="<i2", mode="r")
-rf = rf[: rf.size // (rows * channels) * rows * channels].reshape(-1, channels, rows)
+def load_frame(k):
+    """Frame k (1-based) as (channels, rows): MATLAB [rows, channels] is column-major."""
+    fn = f"{folder}/" + info["frame_files"].replace("%05i", f"{k:05d}")
+    return np.fromfile(fn, dtype="<i2").reshape(channels, rows)
 
-frame = rf[0]           # (channels, rows)
-channel_1 = rf[0, 0]    # (rows,)
+frame = load_frame(1)   # (channels, rows)
+channel_1 = frame[0]    # (rows,)
 ```
 
 Use `dtype=">i2"` if `byte_order` is `ieee-be`.

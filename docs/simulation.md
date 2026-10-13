@@ -1,6 +1,6 @@
 ---
 title: Simulation mode
-nav_order: 9
+nav_order: 10
 ---
 
 # Simulation mode
@@ -10,21 +10,17 @@ useful for testing changes to the sequence, the GUI and data saving.
 
 ## Running a simulation
 
-In `xAM_imaging.m`, set
-
-```matlab
-Resource.Parameters.simulateMode = 1;
+```bash
+./run_xam.sh --sim                       # with the compiled beamformer MLBFXWave
+./run_xam.sh --sim --cpu-beamformer      # without it (e.g. on Linux)
 ```
 
-and run the script as usual (see [Quick start](quick-start.md)). The simulator
-uses the point targets from `pt1` (`Media`), moved slightly between frames by
-`movePoints`.
+`--sim` sets `Resource.Parameters.simulateMode = 1` (it is 0, hardware, by
+default). The simulator uses the point targets from `pt1` (`Media`), moved
+slightly between frames by `movePoints`.
 
-Simulation needs:
-
-- a Verasonics licence that includes the simulator and is issued for this
-  computer (see [Installation](installation.md#verasonics-licence));
-- the beamformer `MLBFXWave` (currently Windows only).
+Simulation needs a Verasonics licence that includes the simulator and is
+issued for this computer (see [Installation](installation.md#verasonics-licence)).
 
 ## What to expect
 
@@ -41,10 +37,11 @@ Simulation needs:
 
 ## Testing without the beamformer
 
-On Linux, the sequence, GUI and recording can be tested in simulation with a
-MATLAB stand-in for `MLBFXWave` (a CPU delay-and-sum using the same lookup
-tables, ~200 ms per image). Put it on the path ahead of
-`dependencies/reconstruct`, and temporarily disable the
-`exist('MLBFXWave', 'file') ~= 3` check in `xw_beamform_run`, which only
-accepts a compiled beamformer. The frame rate drops to about 1-1.3 Hz, but all
-controls and saving work.
+With `--cpu-beamformer` (or `P.use_cpu_beamformer = true`), a MATLAB
+delay-and-sum stand-in for `MLBFXWave`, `xw_beamform_cpu`, is used. It needs no
+compiled code but takes about 200 ms per image, so the frame rate drops to
+about 1-1.5 Hz. All controls, recording and the voltage sweep work. It has not
+been validated against `MLBFXWave`.
+
+In simulation, the transmit voltage does not change the simulated echoes, so a
+voltage sweep gives flat curves (see [Voltage sweep](voltage-sweep.md)).

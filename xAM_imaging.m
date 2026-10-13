@@ -43,6 +43,9 @@
 %   P.use_half_pitch_scanning  : Enables half-pitch scanning for finer sampling,
 %                                 at cost of max frame rate.
 %   P.transmit_frequency       : Transducer transmit frequency [MHz]
+%   P.use_cpu_beamformer       : Use the slow MATLAB stand-in xw_beamform_cpu
+%                                 instead of the compiled MLBFXWave. Default:
+%                                 true if XAM_CPU_BEAMFORMER=1 is set.
 %
 % Dependent parameters (computed from above):
 %   P.half_aperture_size     : Half the number of active elements in transmit aperture
@@ -105,11 +108,27 @@ P.save_path = fullfile(repo_root, 'data'); % default path for data saving
 P.record_path = P.save_path; % path for recordings ('Record' button), put on a fast (NVMe) drive
 P.record_num_frames = 20; % default number of frames per recording
 
+% Voltage sweep ('Voltage sweep' button), configured with run_xam.sh --sweep. Empty = no sweep.
+P.sweep_voltages = xw_parse_voltages(getenv('XAM_SWEEP_VOLTAGES')); % [V], e.g. 1.6:0.4:6
+P.sweep_passes = 2; % passes through the voltages (pass 2 shows whether GVs collapsed in pass 1)
+P.sweep_frames = 5; % frames recorded and measured per voltage
+P.sweep_save_mode = 'images'; % saved per voltage: 'images' (~0.6 MB/frame) or 'rf' (~190 MB/frame)
+if ~isempty(getenv('XAM_SWEEP_SAVE')); P.sweep_save_mode = getenv('XAM_SWEEP_SAVE'); end
+if ~isempty(getenv('XAM_SWEEP_FRAMES')); P.sweep_frames = str2double(getenv('XAM_SWEEP_FRAMES')); end
+P.sweep_settle_frames = 2; % frames discarded after each voltage change
+P.sweep_settle_s = 1; % minimum settle time after a voltage increase [s]
+P.sweep_settle_s_down = 3; % minimum settle time after a voltage decrease [s]
+P.sweep_max_voltage = 25; % sweep refuses voltages above this [V] (L22-14vX limit is 30 V)
+
 %% =============================================================================
 % INPUT VALIDATION
 % ==============================================================================
 assert(P.image_end_depth_mm >= P.image_start_depth_mm, 'Image end depth must be larger than start depth. Recommended start = 0, end = 10mm')
 assert(P.aperture_size_min < P.aperture_size_max, 'Min aperture size must be smaller than max aperture size. Recommended min = 33, max = 64')
+assert(all(P.sweep_voltages <= P.sweep_max_voltage), 'Sweep voltages must not exceed P.sweep_max_voltage = %g V', P.sweep_max_voltage)
+assert(all(P.sweep_voltages >= 1.6), 'Sweep voltages must be at least 1.6 V (Vantage minimum)')
+assert(ismember(P.sweep_save_mode, {'images', 'rf'}), 'P.sweep_save_mode must be ''images'' or ''rf''')
+assert(isfinite(P.sweep_frames) && P.sweep_frames >= 1 && P.sweep_frames == round(P.sweep_frames), 'Sweep frames per voltage must be a positive integer')
 
 %% =============================================================================
 % TRANSDUCER PARAMETERS
@@ -128,7 +147,7 @@ Resource.Parameters.numRcvChannels = 128; % number of receive channels
 Resource.Parameters.speedOfSound = P.speed_of_sound; % speed of sound [m/s]
 Resource.Parameters.verbose = 1; % controls output warnings
 Resource.Parameters.speedCorrectionFactor = 1.0;
-Resource.Parameters.simulateMode = 0; % 0; simulation onn [1] simulation off [0]
+Resource.Parameters.simulateMode = double(strcmp(getenv('XAM_SIMULATE'), '1')); % 1: simulation, 0: hardware (run_xam.sh --sim sets 1)
 Resource.Parameters.fakeScanhead = 0;
 Resource.VDAS.dmaTimeout = 1000 * 4; % 4 seconds
 Resource.Parameters.waitForProcessing = 1;
@@ -140,6 +159,7 @@ P.num_accumulations = 1; % if >1, will accumulate RF data on the device. Keep lo
 P.use_adaptive_xwave_angle = true; % if true updates the xWave Angles dependent on the  imaging depth
 P.use_half_pitch_scanning = true;
 P.transmit_frequency = Trans.frequency; % transducer transmit frequency [MHz]
+P.use_cpu_beamformer = strcmp(getenv('XAM_CPU_BEAMFORMER'), '1'); % slow MATLAB stand-in for MLBFXWave (e.g. on Linux)
 
 P.num_pulses = 3; % number of pulses in xAM pulse sequence, hardcoded
 P.timetag_enabled = 1; % debug option, see time tags of frames
@@ -617,9 +637,17 @@ UI(n_ui).Callback = {'xw_change_dr(''xam'', UIValue)'};
 n_ui = n_ui + 1;
 
 % save mode for both 'Save Data' and 'Record': beamformed images or raw RF
+% the button group always starts on its first button, so list the initial mode first
 UISTATES.save_mode = 'images';
+if strcmp(getenv('XAM_SAVE_MODE'), 'rf'); UISTATES.save_mode = 'rf'; end
+UISTATES.save_mode_order = {'images', 'rf'};
+save_mode_labels = {'xAM images', 'Raw RF'};
+if strcmp(UISTATES.save_mode, 'rf')
+    UISTATES.save_mode_order = fliplr(UISTATES.save_mode_order);
+    save_mode_labels = fliplr(save_mode_labels);
+end
 UI(n_ui).Control = {'UserB4', 'Style', 'VsButtonGroup', 'Title', 'Save mode', ...
-                        'NumButtons', 2, 'Labels', {'xAM images', 'Raw RF'}};
+                        'NumButtons', 2, 'Labels', save_mode_labels};
 UI(n_ui).Callback = {'xw_change_save_mode(UIState)'};
 n_ui = n_ui + 1;
 
@@ -640,6 +668,14 @@ UI(n_ui).Control = {'UserC2', 'Style', 'VsPushButton', 'Label', 'Record'};
 UI(n_ui).Callback = {'xw_record_start()'};
 n_ui = n_ui + 1;
 XWRecord = struct('active', false); % recording state, see xw_record_start
+
+% voltage sweep, only when configured (run_xam.sh --sweep); press again to stop
+if ~isempty(P.sweep_voltages)
+    UI(n_ui).Control = {'UserB2', 'Style', 'VsPushButton', 'Label', 'Voltage sweep'};
+    UI(n_ui).Callback = {'xw_sweep_start()'};
+    n_ui = n_ui + 1;
+end
+XWSweep = struct('active', false); % sweep state, see xw_sweep_start
 
 % configure saveDataMenu
 P.matfile_file_name = 'xAM_imaging.mat';

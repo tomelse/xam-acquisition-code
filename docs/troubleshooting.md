@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-nav_order: 10
+nav_order: 11
 ---
 
 # Troubleshooting
@@ -47,7 +47,8 @@ nav_order: 10
 
 **`Could not find MLBFXWave, which is the C++ beamformer.`**
 : The compiled beamformer is missing for this platform. Only a Windows build
-  (`MLBFXWave.mexw64`) is available at the moment.
+  (`MLBFXWave.mexw64`) is available at the moment. To run without it, use the
+  slow MATLAB stand-in: `./run_xam.sh --cpu-beamformer`.
 
 **GPU code in MATLAB is very slow the first time, or `gpuDevice` seems to hang**
 : MATLAB releases older than the GPU (e.g. R2024b with an RTX 50-series card)
@@ -72,9 +73,10 @@ nav_order: 10
 : Make sure compression is off (it is by default in RF mode) and the target is
   a fast local drive. See [Performance](performance.md).
 
-**`Recording stopped: only … samples written (disk full?)`**
+**`Recording stopped after … frames: Only … samples written to … (disk full?)`**
 : The drive ran out of space during a recording. The frames written so far
-  can still be loaded with `xw_load_rf_recording`.
+  can still be loaded with `xw_load_rf_recording`; the failed frame is listed
+  in `failed_frames` in `recording_info.mat`.
 
 **`Please freeze VSX`**
 : **Save Data** saves a snapshot of the frozen sequence. Press **Freeze** first,

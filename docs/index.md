@@ -29,6 +29,8 @@ of the aperture, nonlinear *propagation* artifacts are suppressed as well. See:
 - **Save Data**: snapshot of the frozen sequence, as images or raw RF.
 - **Record**: continuous recording of a set number of frames, as images or raw
   RF, without dropping frames.
+- **Voltage sweep**: mean xAM signal against transmit voltage, in two passes, to
+  find the best imaging voltage.
 - Runs on Vantage NXT 2.2 / 2.3 (tested with 2.3.2-p2) and Vantage 4.x (the
   original target), on hardware or in simulation mode.
 
@@ -42,6 +44,7 @@ of the aperture, nonlinear *propagation* artifacts are suppressed as well. See:
 | [Parameters](parameters.md) | All settings in `xAM_imaging.m` |
 | [How it works](how-it-works.md) | Transmit scheme, sequence, data layout, beamforming |
 | [Saving data](saving-data.md) | Snapshots, recordings, file formats, loading data |
+| [Voltage sweep](voltage-sweep.md) | Finding the best imaging voltage for GVs |
 | [Performance](performance.md) | Frame-rate budget and measured save/reconstruction times |
 | [Simulation mode](simulation.md) | Testing without hardware, and what to expect |
 | [Troubleshooting](troubleshooting.md) | Known errors and their fixes |

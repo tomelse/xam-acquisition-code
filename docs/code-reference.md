@@ -1,6 +1,6 @@
 ---
 title: Code reference
-nav_order: 11
+nav_order: 12
 ---
 
 # Code reference
@@ -13,6 +13,7 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 
 | File | Description |
 | --- | --- |
+| `run_xam.sh` | Terminal launcher: parses the options (`--sweep`, `--save`, `--sim`, …), passes them to MATLAB as `XAM_*` environment variables, and runs `xAM_imaging.m`. |
 | `xAM_imaging.m` | Sets parameters, builds the Verasonics structs (`Trans`, `TW`, `TX`, `Receive`, `TGC`, `Process`, `SeqControl`, `Event`, `UI`), saves them to `MatFiles/xAM_imaging.mat` and starts `VSX`. |
 
 ## `dependencies/sequence`: setup and GUI callbacks
@@ -29,16 +30,25 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `xw_change_save_mode` | **Save mode** switch: sets `UISTATES.save_mode` to `'images'` or `'rf'`. |
 | `xw_change_record_frames` | **Rec. frames** slider. |
 | `xw_save_data` | **Save Data**: presets the save menu for the save mode and opens it. |
-| `xw_record_start` | **Record**: checks disk space, creates the recording folder, opens the RF file and starts the recording (or stops a running one). |
-| `xw_record_frame` | Called for every frame from `xw_beamform_run`; appends RF to `rf_data.bin` or saves `frame_#####.mat`. |
+| `xw_sweep_start` | **Voltage sweep**: starts a voltage sweep, or stops a running one. |
+| `xw_sweep_frame` | Called for every frame from `xw_beamform_run`; settles, records and measures each voltage step. |
+| `xw_sweep_next_step` | Sets the voltage of the next step and its settle time. |
+| `xw_sweep_set_voltage` | Sets the TPC profile 1 voltage at runtime (as the **High Voltage P1** slider does) and updates the slider. |
+| `xw_sweep_finish` | Restores the voltage, saves `sweep_results.mat` and plots the result. |
+| `xw_record_begin` | Starts a recording of a given mode, frame count and folder (used by **Record** and the sweep). |
+| `xw_record_start` | **Record**: checks disk space, creates the recording folder, starts the background threads and the recording (or stops a running one). |
+| `xw_record_frame` | Called for every frame from `xw_beamform_run`; starts a background write of the RF frame (`frame_#####.bin`) or saves `frame_#####.mat`. Limits the number of writes still running. |
+| `xw_record_write_frame` | Writes one RF frame to its own file; runs on a `backgroundPool` thread. |
+| `xw_record_stop` | Ends a recording; the final steps run once all background writes have finished, without blocking acquisition. |
 | `xw_record_save_info` | Writes `recording_info.mat`. |
-| `xw_record_finish` | Closes the RF file, writes the final `recording_info.mat`, reports the frame rate. |
+| `xw_record_finish` | Checks which frames were written, writes the final `recording_info.mat`, reports the frame rate. |
 
 ## `dependencies/reconstruct`: beamforming
 
 | Function | Description |
 | --- | --- |
 | `xw_beamform_run` | External process function called per frame: splits X/L/R, forms `X − L − R`, beamforms `PW` and `xAM`, records, applies persistence, stores `BFData`. |
+| `xw_beamform_cpu` | Slow MATLAB stand-in for `MLBFXWave` (`--cpu-beamformer`). |
 | `xw_beamform_compute_LUT` | Transmit and receive delay lookup tables, including the f-number mask, waveform peak and lens corrections. |
 | `MLBFXWave` | GPU beamformer (compiled; `MLBFXWave.m` only holds its documentation). |
 
@@ -53,7 +63,8 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 
 | Function | Description |
 | --- | --- |
-| `xw_load_rf_recording` | Loads frames from an RF recording (`rf_data.bin`) with `memmapfile`. |
+| `xw_load_rf_recording` | Loads frames from an RF recording (one file per frame, or the older single `rf_data.bin`). |
+| `xw_parse_voltages` | Reads the `--sweep` voltage list. |
 | `TimeTag2Sec` | Converts the two time-tag samples of a frame to seconds. |
 | `evalin_if_exist`, `check_if_exist` | Read base-workspace variables with a default. |
 | `fprintfd` | `fprintf` only when `DEBUG = 1` in the base workspace. |
@@ -66,5 +77,6 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `P` | Parameters (see [Parameters](parameters.md)); updated with `x_axis`, `z_axis`, ray angles. |
 | `UISTATES` | GUI state: `persistence`, `dr_bmode`, `dr_xam`, `save_mode`, `record_num_frames`. |
 | `BFData`, `BFData_raw` | Latest beamformed frame with and without persistence. |
-| `XWRecord` | Recording state: `active`, `mode`, `num_frames`, `frame_count`, `folder`, `fid`, `time_tags`, … |
+| `XWRecord` | Recording state: `active`, `mode`, `num_frames`, `frame_count`, `folder`, `pending` (background writes), `time_tags`, … |
+| `XWSweep` | Voltage sweep state: `active`, `voltages`, `step`, `phase`, `hv_set`, `mean_xam`, … |
 | `SaveDataMenuSettings` | Defaults for the save menu. |

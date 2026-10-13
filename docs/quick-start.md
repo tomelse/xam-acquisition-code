@@ -35,6 +35,18 @@ cd("/path/to/VantageNXT-2.3.2-p2");
 
 ## 3. Activate and run
 
+From a terminal, the quickest way is the launcher script in the repository:
+
+```bash
+./run_xam.sh                    # hardware
+./run_xam.sh --sim              # simulation, no hardware needed
+./run_xam.sh --help             # all options (voltage sweep, save mode, ...)
+```
+
+It starts MATLAB R2024a in the terminal, activates the Verasonics software and
+runs the script. Set `MATLAB=...` or `VANTAGE_ROOT=...` if they are not in the
+default locations. To run it from MATLAB instead:
+
 Once per MATLAB session, activate the Verasonics software from its root folder:
 
 ```matlab
