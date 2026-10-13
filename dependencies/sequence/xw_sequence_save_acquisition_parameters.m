@@ -17,7 +17,12 @@ function xw_sequence_save_acquisition_parameters()
                   'UISTATES';
                   };
 
-    save_path = fullfile(P.save_path, [P.matfile_file_name '_ACQ_PARAMETERS.mat']);
+    % skip variables that are not defined (e.g. RcvProfile when left at default)
+    VarsToSave = VarsToSave(cellfun(@(v) check_if_exist('base', v) > 0, VarsToSave));
+
+    if ~isfolder(P.save_path); mkdir(P.save_path); end
+    [~, base_name] = fileparts(P.matfile_file_name);
+    save_path = fullfile(P.save_path, [base_name '_ACQ_PARAMETERS.mat']);
 
     % and save (and set saving display)
     varStr = char(join(compose('''%s'',', string(VarsToSave))));

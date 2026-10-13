@@ -69,12 +69,16 @@ clear all %#ok<CLALL>
 format compact
 close all
 
-% add paths
-addpath('dependencies/display')
-addpath('dependencies/reconstruct')
-addpath('dependencies/sequence')
-addpath('dependencies/utilities')
-addpath('dependencies/utilities/save')
+% add paths. Absolute, since VSX must be run from the Vantage root folder, not
+% from this repository.
+repo_root = fileparts(mfilename('fullpath'));
+addpath(fullfile(repo_root, 'dependencies', 'display'))
+addpath(fullfile(repo_root, 'dependencies', 'reconstruct'))
+addpath(fullfile(repo_root, 'dependencies', 'sequence'))
+addpath(fullfile(repo_root, 'dependencies', 'utilities'))
+addpath(fullfile(repo_root, 'dependencies', 'utilities', 'save'))
+
+cd ("/home/telse/Documents/Code/VantageNXT-2.3.2-p2");
 
 %% =============================================================================
 % SETUP ACQUISITION PARAMETERS
@@ -95,7 +99,13 @@ P.aperture_size_max = 64; % max number of elements in active aperture
 P.transmit_apodization = 'tukey'; % Apodization to avoid edge waves. Options: none/kaiser/hamming/tukey
 P.fps = 2; % acquisition frame rate in [Hz]
 
-P.save_path = 'data'; % default path for data saving
+P.save_path = fullfile(repo_root, 'data'); % default path for data saving
+
+%% =============================================================================
+% INPUT VALIDATION
+% ==============================================================================
+assert(P.image_end_depth_mm >= P.image_start_depth_mm, 'Image end depth must be larger than start depth. Recommended start = 0, end = 10mm')
+assert(P.aperture_size_min < P.aperture_size_max, 'Min aperture size must be smaller than max aperture size. Recommended min = 33, max = 64')
 
 %% =============================================================================
 % TRANSDUCER PARAMETERS
@@ -146,7 +156,7 @@ if P.use_adaptive_xwave_angle
         warning('Imaging depth too high for combination of angles. Max depth of intersecting xWave is %.2fmm. Either\n - Decrease imaging depth\n - Set P.use_adaptive_xwave_angle to false\n - Dont trust xAM results below %.2fmm\n - Decrease the max angle', P.max_image_depth * 1e3, P.max_image_depth * 1e3)
     end
 end
-assert(P.num_rf_frames >= 4, 'num_rf_frames must be larger than 4');
+assert(P.num_rf_frames >= 4, 'num_rf_frames must be at least 4');
 
 % some additional dependent parameters
 P.scale_wvl2mm = (Resource.Parameters.speedOfSound / Trans.frequency) * 1e-3; % length of 1 wavelength in mm
@@ -156,12 +166,6 @@ P.num_angles = numel(P.xwave_angles);
 % specify Media object
 pt1;
 Media.function = 'movePoints';
-
-%% =============================================================================
-% INPUT VALIDATION
-% ==============================================================================
-assert(P.image_end_depth_mm >= P.image_start_depth_mm, 'Image end depth must be larger than start depth. Recommended start = 0, end = 10mm')
-assert(P.aperture_size_min < P.aperture_size_max, 'Min aperture size must be smaller than max aperture size. Recommended min = 33, max = 64')
 
 %% =============================================================================
 % RESOURE BUFFERS
@@ -256,12 +260,12 @@ for idx_ray = 1:P.num_rays
             Receive(idx + P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
             Receive(idx + P.num_angles * P.num_rays).mode = 0;
             Receive(idx + P.num_angles * P.num_rays).framenum = idx_frame;
-            Receive(idx + P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * P.num_rays; % for right active aperture
+            Receive(idx + P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * P.num_rays; % for left active aperture
 
             Receive(idx + 2 * P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
             Receive(idx + 2 * P.num_angles * P.num_rays).mode = 0;
             Receive(idx + 2 * P.num_angles * P.num_rays).framenum = idx_frame;
-            Receive(idx + 2 * P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * 2 * P.num_rays; % for left active aperture
+            Receive(idx + 2 * P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * 2 * P.num_rays; % for right active aperture
 
             if P.use_accumulation
                 idx = idx_angle + (idx_ray - 1) * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum + nRcvObj_p_accum * P.num_rf_frames;
@@ -274,12 +278,12 @@ for idx_ray = 1:P.num_rays
                 Receive(idx + P.num_angles * P.num_rays).mode = 1;
                 Receive(idx + P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
                 Receive(idx + P.num_angles * P.num_rays).framenum = idx_frame;
-                Receive(idx + P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * P.num_rays; % for right active aperture
+                Receive(idx + P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * P.num_rays; % for left active aperture
 
                 Receive(idx + 2 * P.num_angles * P.num_rays).mode = 1;
                 Receive(idx + 2 * P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
                 Receive(idx + 2 * P.num_angles * P.num_rays).framenum = idx_frame;
-                Receive(idx + 2 * P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * 2 * P.num_rays; % for left active aperture
+                Receive(idx + 2 * P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * 2 * P.num_rays; % for right active aperture
             end
         end
     end
@@ -372,7 +376,15 @@ Event(n).info = 'initialize beamformer';
 Event(n).tx = 0;
 Event(n).rcv = 0;
 Event(n).recon = 0;
-Event(n).process = [PN.image_reconstruct_init, PN.image_display];
+Event(n).process = PN.image_reconstruct_init;
+Event(n).seqControl = SC.matlab;
+n = n + 1;
+
+Event(n).info = 'initialize beamformer';
+Event(n).tx = 0;
+Event(n).rcv = 0;
+Event(n).recon = 0;
+Event(n).process = PN.image_display;
 Event(n).seqControl = SC.matlab;
 n = n + 1;
 
@@ -409,7 +421,7 @@ for idx_frame = 1:P.num_rf_frames
             Event(n).seqControl = SC.ttna; % Time between acquisitions
             n = n + 1;
 
-            Event(n).info = sprintf('Acquire R R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
+            Event(n).info = sprintf('Acquire L R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
             Event(n).tx = idx_TX + P.num_rays * P.num_angles;
             Event(n).rcv = idx_TX + P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum;
             Event(n).recon = 0;
@@ -417,7 +429,7 @@ for idx_frame = 1:P.num_rf_frames
             Event(n).seqControl = SC.ttna; % Time between acquisitions
             n = n + 1;
 
-            Event(n).info = sprintf('Acquire L R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
+            Event(n).info = sprintf('Acquire R R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
             Event(n).tx = idx_TX + 2 * P.num_rays * P.num_angles;
             Event(n).rcv = idx_TX + 2 * P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum;
             Event(n).recon = 0;
@@ -463,7 +475,7 @@ for idx_frame = 1:P.num_rf_frames
                 Event(n).seqControl = SC.ttna; % Time between acquisitions
                 n = n + 1;
 
-                Event(n).info = sprintf('Acquire R R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
+                Event(n).info = sprintf('Acquire L R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
                 Event(n).tx = idx_TX + P.num_rays * P.num_angles;
                 Event(n).rcv = idx_TX + nRcvObj_p_accum * P.num_rf_frames + P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum; % use next receive structure
                 Event(n).recon = 0;
@@ -471,7 +483,7 @@ for idx_frame = 1:P.num_rf_frames
                 Event(n).seqControl = SC.ttna; % Time between acquisitions
                 n = n + 1;
 
-                Event(n).info = sprintf('Acquire L R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
+                Event(n).info = sprintf('Acquire R R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
                 Event(n).tx = idx_TX + 2 * P.num_rays * P.num_angles;
                 Event(n).rcv = idx_TX + nRcvObj_p_accum * P.num_rf_frames + 2 * P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum; % use next receive structure
                 Event(n).recon = 0;
@@ -605,7 +617,7 @@ UI(n_ui).Callback = {'saveDataMenu()'};
 n_ui = n_ui + 1;
 
 % configure saveDataMenu
-P.matfile_file_name = 'xAM_imaging.mat'; filename = P.matfile_file_name;
+P.matfile_file_name = 'xAM_imaging.mat';
 SaveDataMenuSettings = saveDataMenu('defaults'); % call with 1 output arg and one input arg to obtain defaults
 SaveDataMenuSettings.filename = P.matfile_file_name;
 SaveDataMenuSettings.custom_figures = {2};
@@ -614,9 +626,10 @@ SaveDataMenuSettings.custom_variables = {'UISTATES', 'BFData', 'BFData_raw'};
 BFData_raw = []; BFData = [];
 
 % save sequence definition for VSX
-if ~isfolder('MatFiles'); mkdir('MatFiles'); end
-addpath('MatFiles')
-save(['MatFiles/', P.matfile_file_name]);
+matfile_dir = fullfile(repo_root, 'MatFiles');
+if ~isfolder(matfile_dir); mkdir(matfile_dir); end
+filename = fullfile(matfile_dir, P.matfile_file_name); % picked up by VSX
+save(filename);
 
 % Automatically Launch Verasonics
 VSX

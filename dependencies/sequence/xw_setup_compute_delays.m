@@ -2,7 +2,7 @@ function [DelayX, DelayL, DelayR, channelsX, channelsL, channelsR] = xw_setup_co
     % Function to calculate delays for xBmode/xAM
     
     % Initialize values
-    DelayX = zeros(1, 128); DelayL = DelayX; DelayR = DelayX;
+    DelayX = zeros(1, Trans.numelements); DelayL = DelayX; DelayR = DelayX;
     theta = AngleRad;
     c0 = P.speed_of_sound;
 
@@ -20,11 +20,7 @@ function [DelayX, DelayL, DelayR, channelsX, channelsL, channelsR] = xw_setup_co
         Delay= [Delay; 0;flip(Delay)];
         Delay = Delay - min(Delay(:));
         
-        try
-            Delay(Aperture / 2 + 1) = 0; % Put the delay at SubAperture/2+1 to 0 (not necessary)
-        catch
-            keyboard
-        end
+        Delay(Aperture / 2 + 1) = 0; % Put the delay at SubAperture/2+1 to 0 (not necessary)
 
         % Then put this Delay at the right spot
         % Construct channel indices

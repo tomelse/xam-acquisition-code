@@ -9,9 +9,9 @@ function TX = xw_setup_build_transmit(TX, idx_tx, idx_ray, idx_angle, Trans, P)
     if idx_bisector - P.aperture_size_max / 2 < 1
         % Left reduced aperture
         Aperture = 2 * ceil(idx_bisector - 1);
-    elseif idx_bisector + P.aperture_size_max / 2 > 128
+    elseif idx_bisector + P.aperture_size_max / 2 > Trans.numelements
         % Right reduced aperture
-        Aperture = 2 * ceil(128 - idx_bisector);
+        Aperture = 2 * ceil(Trans.numelements - idx_bisector);
     else
         % Normal aperture
         Aperture = P.aperture_size_max;
@@ -73,19 +73,19 @@ function TX = xw_setup_build_transmit(TX, idx_tx, idx_ray, idx_angle, Trans, P)
 
     % 1st transmit is X
     TX(idx_tx).waveform = 1;
-    TX(idx_tx).Apod = zeros(1, 128);
+    TX(idx_tx).Apod = zeros(1, Trans.numelements);
     TX(idx_tx).Apod(channelsX) = ApodList; % This will transmit only on 65 elements around ReconChannel
     TX(idx_tx).Delay = DelayX; % X
 
     % 2nd transmit is /
     TX(idx_tx + P.num_rays * P.num_angles).waveform = 1;
-    TX(idx_tx + P.num_rays * P.num_angles).Apod = zeros(1, 128);
+    TX(idx_tx + P.num_rays * P.num_angles).Apod = zeros(1, Trans.numelements);
     TX(idx_tx + P.num_rays * P.num_angles).Apod(channelsL) = ApodList(1:length(channelsL)); % This will transmit only on 32 elements before ReconChannel
     TX(idx_tx + P.num_rays * P.num_angles).Delay = DelayL; % /
 
     % 3rd transmit is \
     TX(idx_tx + 2 * P.num_rays * P.num_angles).waveform = 1;
-    TX(idx_tx + 2 * P.num_rays * P.num_angles).Apod = zeros(1, 128);
+    TX(idx_tx + 2 * P.num_rays * P.num_angles).Apod = zeros(1, Trans.numelements);
     TX(idx_tx + 2 * P.num_rays * P.num_angles).Apod(channelsR) = ApodList(end:-1:(end - length(channelsR) + 1)); % This will transmit only on 32 elements after ReconChannel
     TX(idx_tx + 2 * P.num_rays * P.num_angles).Delay = DelayR;
 

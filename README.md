@@ -39,6 +39,15 @@ Other parameters that can be configured are described below.
 ### 2. Launch imaging sequence
 Run the script `xAM_imaging.m` to start imaging. The VSX GUI will pop up.
 
+VSX must be started from the root folder of the Vantage software, so run
+`activate` there first and then call the script from that folder (or `cd` to
+it inside the script before `VSX` is called). Paths to this repository are
+resolved automatically. On Vantage NXT, use the MATLAB release required by your
+NXT version (R2024a for NXT 2.2-2.3).
+
+Note: the beamformer `MLBFXWave` is currently only available as a Windows
+binary (`.mexw64`).
+
 ![VSX gui](doc/img/vsx_gui.png)
 
 When it is safe, if the ultrasound transducer is in contact with the phantom,

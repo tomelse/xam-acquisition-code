@@ -72,7 +72,7 @@ function BFData = xw_beamform_run(RFData)
     persistent BFC
     if isempty(BFC)
         warning OFF ParseStruct:notExistOrEmpty
-        if ~exist('MLBFXWave', 'file') == 3
+        if exist('MLBFXWave', 'file') ~= 3 % 3 = compiled mex
             error('MLBFXWave:notfound', 'Could not find MLBFXWave, which is the C++ beamformer. Contact r.waasdorp@tudelft.nl')
         end
         BFC.XPiezo = Trans.ElementPos(:, 1) * 1e-3; % in m
@@ -129,6 +129,13 @@ function BFData = xw_beamform_run(RFData)
     assignin('base', 'P', P);
     assignin('base', 'BFC', BFC);
 
+end
+
+function RF2 = reshaper3to2D(RF3)
+    % Stack frames along the rows: [rows, channels, frames] -> [rows*frames, channels],
+    % frame by frame, as expected by MLBFXWave with BFConfig.NFrames > 1.
+    [nrows, nchannels, nframes] = size(RF3);
+    RF2 = reshape(permute(RF3, [1 3 2]), nrows * nframes, nchannels);
 end
 
 function BFC = createEmptyBFConfig(P)
