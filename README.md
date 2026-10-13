@@ -1,28 +1,29 @@
-# xAM-imaging
+# X-wave amplitude modulation acquisition scripts for Verasonics NXT.
 
 Repository containing script that implements the xAM imaging sequence for
 artifact-free detection of gas vesicles (GVs). By transmitting cross-propagating
 plane waves, xAM suppresses nonlinear propagation artifacts while preserving
 nonlinear contrast from GVs. 
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Made with MATLAB](https://img.shields.io/badge/MATLAB-R2021b-orange.svg)]()
-[![Vantage](https://img.shields.io/badge/Vantage-4.8.6+-blue.svg)]()
+Based on a previous implementation [here](https://github.com/MarescaRenaudLabs/xAM-imaging).
 
 
 ## Prerequisites
 Make sure you have the following software installed. 
 
-- MATLAB: R2021b or later
-- CUDA Toolkit: Version ≥ 12.0 (recommended: [CUDA 12.9.1](https://developer.nvidia.com/cuda-12-9-1-download-archive))
-- Verasonics Vantage: Version 4.0 or later
+- MATLAB: R2024a
+- VantageNXT-2.3.2-p2
 
 
 ## How to use
 
 ### 1. Parameter Review
 
-Open the imaging sequence `xAM_imaging.m` and review the following parameters: 
+Open the imaging sequence `xAM_imaging.m`.
+
+Modify the NXT path in line 86 (cd ("/path/to/Verasonics...")) to wherever your Verasonics NXT code is saved.
+
+Then review the following parameters: 
 
 ```matlab
 Trans.name = 'L22-14vX';        % tested transducers are L22-14v / L11-5v
@@ -98,9 +99,7 @@ continuously and displayed on screen, side by side with a B-mode image.
 
 ### Notes
 
-- Tested on MATLAB R2021b on Windows 10, with Verasonics Vantage-4.8.6. 
-- You require a Verasonics host PC with GPU, since the sequence uses a GPU
-accelerated beamformer. 
+- This code is still in the development stage. Use at your own risk.
 
 ## Feedback, Feature Requests, and Bug Reports
 
@@ -111,18 +110,5 @@ We welcome contributions from users and developers!
 
 Your input helps improve this repository and guide future development.
 
-
-## References to be cited 
-
-- Maresca, D., Sawyer, D. P., Renaud, G., Lee-Gosselin, A., & Shapiro, M. G.
-  (2018). Nonlinear X-wave ultrasound imaging of acoustic biomolecules. Physical
-  Review X, 8(4), 041002, DOI:
-  [10.1103/PhysRevX.8.041002](https://doi.org/10.1103/PhysRevX.8.041002)
-- Matalliotakis, A., Waasdorp, R., Verweij, M. D., & Maresca, D. (2024). Impact
-  of wavefront shape on nonlinear ultrasound imaging of monodisperse
-  microbubbles. Physical Review Applied, 22(3), 034062, DOI: [10.1103/PhysRevX.8.041002](https://doi.org/10.1103/PhysRevApplied.22.034062)
-
-
 ## Disclaimer
 This software is provided by the authors and contributors "as is" and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed. In no event shall the authors and contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
-
