@@ -1,0 +1,56 @@
+---
+title: Parameters
+nav_order: 5
+---
+
+# Parameters
+
+All parameters are set near the top of `xAM_imaging.m`, in the struct `P`
+(and `Trans.name`). The script is re-run to apply changes.
+
+## Basic
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `Trans.name` | `'L22-14vX'` | Transducer. Tested: `L22-14vX`, `L11-5v`. |
+| `P.image_start_depth_mm` | `0` | Start depth of the image [mm]. |
+| `P.image_end_depth_mm` | `10` | End depth of the image [mm]. |
+| `P.xwave_angles` | `17` | xWave angle [degrees]. Check that the plane waves still cross at the maximum depth (a warning is shown if not). |
+| `P.speed_of_sound` | `1480` | Speed of sound [m/s]: 1480 for water/agar, 1540 for tissue. |
+| `P.image_voltage` | `2.5` | Initial transmit voltage [V]. Keep low to avoid GV collapse. |
+| `P.aperture_size_min` | `48` | Minimum number of elements in the transmit aperture. Sets how close to the array edges rays are placed (48 gives a wide field of view). |
+| `P.aperture_size_max` | `64` | Maximum number of elements in the transmit aperture. |
+| `P.transmit_apodization` | `'tukey'` | Transmit apodization against edge waves: `'none'`, `'tukey'`, `'hamming'` or `'kaiser'`. |
+| `P.fps` | `2` | Frame rate [Hz]. An error is raised if it exceeds the maximum the sequence allows. |
+| `P.save_path` | `<repo>/data` | Default folder for **Save Data** snapshots. |
+| `P.record_path` | `P.save_path` | Folder for **Record** recordings. Raw RF is ~190 MB per frame, so use a fast drive. |
+| `P.record_num_frames` | `20` | Initial value of the **Rec. frames** slider. |
+
+## Advanced
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `P.num_accumulations` | `1` | Number of RF acquisitions summed on the hardware per transmit. Increases SNR but lowers the maximum frame rate, and can clip the signal. |
+| `P.use_adaptive_xwave_angle` | `true` | Lowers the xWave angle for rays near the array edges (smaller apertures), so the plane waves still cross down to the maximum depth. |
+| `P.use_half_pitch_scanning` | `true` | Places rays every half element instead of every element: twice the lateral sampling, half the maximum frame rate. |
+| `P.transmit_frequency` | `Trans.frequency` | Transmit frequency [MHz]. |
+| `P.beamform_image_modes` | `{'PW', 'xAM'}` | Images to reconstruct and display: `'PW'` (B-mode from L + R), `'xBmode'` (B-mode from X), `'xAM'`. |
+| `P.timetag_enabled` | `1` | Enables the hardware time tags used for the frame rate display and recording timing. |
+| `P.num_rf_frames` | `4` | Number of frames in the receive buffer. Must be at least 4. |
+| `P.fNumber` | `1.28` | Receive f-number used in beamforming (optional, set in `P` to override). |
+
+## Fixed and derived values
+
+These are computed by the script; change them only if you know what you are
+doing.
+
+| Value | Description |
+| --- | --- |
+| `P.num_pulses = 3` | Pulses per ray: X (full aperture), L (left half), R (right half). |
+| `P.ray_positions` | Ray positions in element indices, from `ceil(aperture_size_min/2)+1` to `128-floor(aperture_size_min/2)`, in steps of 1 or 0.5. With the defaults: 159 rays from -3.95 to 3.95 mm. |
+| `P.max_image_depth` | Depth where the plane waves from the maximum aperture stop crossing: `aperture_size_max * pitch / 2 * cot(angle)`. 10.47 mm with the defaults. |
+| `P.ray_angle` | Actual xWave angle per ray (adaptive angles: 12.9° at the edges to 17° in the centre with the defaults). |
+| `P.Nz_RF` | Samples per acquisition and channel (1536 with the defaults). |
+| `P.ttna` | Time between transmits [µs] (57 µs with the defaults). |
+| `P.max_framerate` | Maximum frame rate allowed by the transmit timing (36.8 Hz with the defaults). |
+| `P.x_axis`, `P.z_axis` | Image grid [m]: one column per ray, rows every half wavelength. Set by the beamformer. |

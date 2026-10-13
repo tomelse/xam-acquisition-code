@@ -1,0 +1,27 @@
+title: xAM imaging
+description: Cross-amplitude modulation (xAM) ultrasound imaging of gas vesicles on Verasonics Vantage and Vantage NXT.
+theme: just-the-docs
+
+plugins:
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: false
+
+# use the theme layout for every page (GitHub Pages does this implicitly,
+# local Jekyll does not)
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+search_enabled: true
+heading_anchors: true
+color_scheme: light
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor
