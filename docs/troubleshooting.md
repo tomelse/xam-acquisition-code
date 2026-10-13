@@ -8,10 +8,15 @@ nav_order: 11
 ## Starting the sequence
 
 **`The current working directory must be the root of the Vantage NXT Software Project Folder.`**
-: VSX and `activate` only run from the Verasonics root folder. Check the
-  `cd(...)` line near the top of `xAM_imaging.m` points to it. Note that
-  `run(script)` temporarily changes to the script's own folder, so `cd`-ing to
-  the Verasonics folder before calling `run` is not enough on its own.
+: VSX and `activate` only run from the Verasonics root folder. The script
+  changes to the folder of the activated software (where `which VSX` points),
+  so check that the right Verasonics version was activated in this MATLAB
+  session.
+
+**`Verasonics software not found: run activate …`**
+: The Verasonics software has not been activated in this MATLAB session. Run
+  `activate` from its root folder, or start with `./run_xam.sh` (set
+  `VANTAGE_ROOT=...` if it is not in `~/Documents/Code/VantageNXT-2.3.2-p2`).
 
 **`Undefined function 'computeTrans'`**
 : The Verasonics software is not activated in this MATLAB session. Run

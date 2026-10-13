@@ -23,15 +23,12 @@ P.record_path = P.save_path;    % recordings: put this on a fast (NVMe) drive
 
 All parameters are described in [Parameters](parameters.md).
 
-## 2. Point the script to the Verasonics software
+## 2. The Verasonics software folder
 
 VSX only runs with the root of the Verasonics software folder as the current
-folder. The script changes to it just before setting up the sequence; set the
-path in this line (after the `addpath` block):
-
-```matlab
-cd("/path/to/VantageNXT-2.3.2-p2");
-```
+folder. The script finds that folder from the activated software
+(`fileparts(which('VSX'))`) and changes to it, so no path has to be set in the
+script. The software only has to be activated first (next step).
 
 ## 3. Activate and run
 

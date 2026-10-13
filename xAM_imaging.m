@@ -83,7 +83,12 @@ addpath(fullfile(repo_root, 'dependencies', 'sequence'))
 addpath(fullfile(repo_root, 'dependencies', 'utilities'))
 addpath(fullfile(repo_root, 'dependencies', 'utilities', 'save'))
 
-cd ("/home/telse/Documents/Code/VantageNXT-2.3.2-p2");
+% VSX must run from the root of the Verasonics software. Find it from the
+% activated software on the path, so no installation path is hard-coded.
+vantage_root = fileparts(which('VSX'));
+assert(~isempty(vantage_root), ['Verasonics software not found: run activate in the ' ...
+    'root folder of the Verasonics software first (or use run_xam.sh).'])
+cd(vantage_root);
 
 %% =============================================================================
 % SETUP ACQUISITION PARAMETERS

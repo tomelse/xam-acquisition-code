@@ -41,9 +41,9 @@ Other parameters that can be configured are described below.
 Run the script `xAM_imaging.m` to start imaging. The VSX GUI will pop up.
 
 VSX must be started from the root folder of the Vantage software: run
-`activate` there once per MATLAB session, and set the `cd(...)` line near the
-top of `xAM_imaging.m` to that folder. Paths to this repository are resolved
-automatically. See the [documentation](docs/index.md) for details. On Vantage NXT, use the MATLAB release required by your
+`activate` there once per MATLAB session (or start with `./run_xam.sh`). The
+script finds the activated Vantage folder and the repository paths itself, so
+no paths need to be set. See the [documentation](docs/index.md) for details. On Vantage NXT, use the MATLAB release required by your
 NXT version (R2024a for NXT 2.2-2.3).
 
 Note: the beamformer `MLBFXWave` is currently only available as a Windows
