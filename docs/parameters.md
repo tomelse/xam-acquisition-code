@@ -53,7 +53,7 @@ normally set with `run_xam.sh --sweep` and `--sweep-frames`.
 | `P.beamform_image_modes` | `{'PW', 'xAM'}` | Images to reconstruct and display: `'PW'` (B-mode from L + R), `'xBmode'` (B-mode from X), `'xAM'`. |
 | `P.timetag_enabled` | `1` | Enables the hardware time tags used for the frame rate display and recording timing. |
 | `P.num_rf_frames` | `4` | Number of frames in the receive buffer. Must be at least 4. |
-| `P.use_cpu_beamformer` | `false` (`true` with `--cpu-beamformer`) | Use the slow MATLAB beamformer `xw_beamform_cpu` instead of `MLBFXWave`. |
+| `P.use_cpu_beamformer` | `false` (`true` with `--cpu-beamformer`) | Use the slow MATLAB beamformer `xw_beamform_cpu` instead of the GPU beamformer. |
 | `P.fNumber` | `1.28` | Receive f-number used in beamforming (optional, set in `P` to override). |
 
 ## Fixed and derived values

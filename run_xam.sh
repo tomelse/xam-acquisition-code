@@ -11,7 +11,7 @@
 #                        rf is ~190 MB per frame)
 #   --save images|rf     initial save mode for Save Data and Record (default images)
 #   --sim                simulation mode (no hardware needed)
-#   --cpu-beamformer     slow MATLAB beamformer, no MLBFXWave needed
+#   --cpu-beamformer     slow MATLAB beamformer, no GPU needed
 #   -h, --help           show this help
 #
 # Override the defaults with environment variables, e.g.
@@ -48,6 +48,10 @@ VANTAGE_ROOT="${VANTAGE_ROOT:-$HOME/Documents/Code/VantageNXT-2.3.2-p2}"
 
 [[ -n "${XAM_SWEEP_VOLTAGES:-}" ]] && echo "Voltage sweep: ${XAM_SWEEP_VOLTAGES} V, ${XAM_SWEEP_FRAMES:-5} frames per voltage, 2 passes, saving ${XAM_SWEEP_SAVE:-images}. Press 'Voltage sweep' in VSX to start."
 [[ "${XAM_SIMULATE:-}" == 1 ]] && echo "Simulation mode."
+
+# keep MATLAB's GPU libraries in the CUDA cache once they are compiled for a GPU
+# newer than the MATLAB release (default cache too small: recompiles every session)
+export CUDA_CACHE_MAXSIZE="${CUDA_CACHE_MAXSIZE:-4294967296}"
 
 # activate must run from the Vantage root; xAM_imaging.m then changes there itself before VSX
 exec "$MATLAB" -nosplash -nodesktop -r "cd('$VANTAGE_ROOT'); activate; run('$REPO/xAM_imaging.m')"

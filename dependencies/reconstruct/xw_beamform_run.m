@@ -73,13 +73,19 @@ function BFData = xw_beamform_run(RFData)
     if isempty(BFC)
         warning OFF ParseStruct:notExistOrEmpty
         if isfield(P, 'use_cpu_beamformer') && P.use_cpu_beamformer
-            beamform = @xw_beamform_cpu; % slow MATLAB stand-in
-            fprintf('Using the CPU stand-in beamformer (xw_beamform_cpu)\n');
-        elseif exist('MLBFXWave', 'file') == 3 % 3 = compiled mex
+            beamform = @xw_beamform_cpu; % slow MATLAB reference, no GPU needed
+            fprintf('Using the CPU beamformer (xw_beamform_cpu)\n');
+        elseif exist('MLBFXWave', 'file') == 3 % a compiled MLBFXWave, if available
             beamform = @MLBFXWave;
         else
-            error('MLBFXWave:notfound', ['Could not find MLBFXWave, which is the C++ beamformer. Contact r.waasdorp@tudelft.nl.\n' ...
-                'To use the slow CPU stand-in instead, set P.use_cpu_beamformer = true or run with XAM_CPU_BEAMFORMER=1.'])
+            fprintf('Starting the GPU (the first time on a new GPU, MATLAB compiles its GPU libraries, which can take minutes)\n');
+            [gpu_ok, gpu_msg] = xw_beamform_gpu_available();
+            if ~gpu_ok
+                error('xw_beamform:nogpu', ['The GPU beamformer cannot run: %s.\n' ...
+                    'To use the slow CPU beamformer instead, set P.use_cpu_beamformer = true or run with --cpu-beamformer.'], gpu_msg);
+            end
+            beamform = @xw_beamform_gpu;
+            fprintf('Using the GPU beamformer (xw_beamform_gpu) on %s\n', gpu_msg);
         end
         BFC.XPiezo = Trans.ElementPos(:, 1) * 1e-3; % in m
         BFC.ZPiezo = 0 * BFC.XPiezo;

@@ -21,7 +21,7 @@ the tests is deleted afterwards unless `--keep-data` is given.
 | Option | Description |
 | --- | --- |
 | `--hardware` | Run the integration test on the hardware instead of in simulation. The transducer transmits at up to 2.5 V, so it must be in water or on a phantom. |
-| `--cpu-beamformer` | Use the MATLAB beamformer. Chosen automatically if there is no compiled `MLBFXWave` for the platform. |
+| `--cpu-beamformer` | Use the MATLAB beamformer. Chosen automatically if there is no NVIDIA GPU. |
 | `--unit-only` | Skip the integration test. |
 | `--keep-data` | Keep the recordings, snapshots and sweep written by the test. |
 
@@ -37,6 +37,7 @@ test is stopped and fails after `XAM_TEST_TIMEOUT` seconds (default 1200).
 | `test_parse_voltages` | `--sweep` voltage ranges and lists; bad input is rejected and never evaluated |
 | `test_rf_recording` | Background RF recording round trip (bit-exact, 4th frame not recorded, subsets); a failed write stops the recording and is listed in `failed_frames` |
 | `test_beamform_cpu` | `xw_beamform_cpu` focuses a synthetic echo at the right depth and ray; multiple frames are handled |
+| `test_beamform_gpu` | `xw_beamform_gpu` matches `xw_beamform_cpu` (2 angles, 2 frames, masked elements) and picks up changed LUTs. Skipped without a usable GPU |
 
 ## Integration test
 

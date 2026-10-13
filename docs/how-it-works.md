@@ -107,7 +107,8 @@ of each frame hold the hardware time tag (see `TimeTag2Sec`).
    - receive delay per depth, ray and element, limited to elements within
      the f-number aperture (`P.fNumber`, default 1.28), including the
      transmit-waveform peak and lens corrections.
-3. Beamform with `MLBFXWave` (GPU, IQ demodulation, linear interpolation):
+3. Beamform with `xw_beamform_gpu` (GPU, IQ demodulation, linear
+   interpolation; `xw_beamform_cpu` is the MATLAB reference):
    `PW = bf(L) + bf(R)` and `xAM = bf(X − L − R)`.
 4. Pass the frame to the recorder (`xw_record_frame`) if a recording is active.
 5. Apply persistence and store the result in `BFData` in the base workspace.

@@ -1,9 +1,9 @@
 function BFIQ = xw_beamform_cpu(BFC, RF, LUT_T, LUT_R)
     % BFIQ = xw_beamform_cpu(BFC, RF, LUT_T, LUT_R)
-    %   MATLAB stand-in for the compiled beamformer MLBFXWave (XW mode, IQ
-    %   demodulation, linear interpolation), for platforms without a compiled
-    %   build. Same inputs and output as MLBFXWave. Slow (~200 ms per image on a
-    %   16-core CPU) and not validated against MLBFXWave.
+    %   MATLAB reference beamformer (XW mode, IQ demodulation, linear
+    %   interpolation), for machines without a GPU. Same inputs and output as
+    %   xw_beamform_gpu (and MLBFXWave). Slow (~200 ms per image on a 16-core
+    %   CPU).
     %
     %   Enable with P.use_cpu_beamformer = true, or XAM_CPU_BEAMFORMER=1 in the
     %   environment (see xAM_imaging.m).

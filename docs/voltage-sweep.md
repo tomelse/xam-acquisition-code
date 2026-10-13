@@ -21,7 +21,7 @@ strong xAM signal without collapsing the GVs.
 | `--sweep VOLTAGES` | Voltages to sweep [V]: `start:step:stop` (e.g. `1.6:0.4:6`), `start:stop` (1 V steps) or a list (`2,3,5`). Adds a **Voltage sweep** button. |
 | `--sweep-frames N` | Frames recorded and measured per voltage (default 5). |
 | `--sweep-save images` / `--sweep-save rf` | What is saved for each voltage: beamformed images (default, ~0.6 MB per frame) or raw RF (~190 MB per frame). Independent of the **Save mode** switch. |
-| `--sim`, `--cpu-beamformer` | Simulation mode, and the slow MATLAB beamformer (for testing without hardware or `MLBFXWave`). |
+| `--sim`, `--cpu-beamformer` | Simulation mode, and the slow MATLAB beamformer (for testing without hardware or a GPU). |
 
 Then, in VSX:
 

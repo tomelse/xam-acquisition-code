@@ -46,8 +46,10 @@ script finds the activated Vantage folder and the repository paths itself, so
 no paths need to be set. See the [documentation](docs/index.md) for details. On Vantage NXT, use the MATLAB release required by your
 NXT version (R2024a for NXT 2.2-2.3).
 
-Note: the beamformer `MLBFXWave` is currently only available as a Windows
-binary (`.mexw64`).
+Images are reconstructed on the GPU with MATLAB `gpuArray` (Parallel Computing
+Toolbox and an NVIDIA GPU; nothing to compile). Without them, use the slower
+CPU beamformer with `./run_xam.sh --cpu-beamformer`. See the
+[installation documentation](docs/installation.md#beamformer).
 
 ![VSX gui](docs/assets/img/vsx_control.png)
 

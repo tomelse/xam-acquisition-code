@@ -50,17 +50,19 @@ nav_order: 12
 
 ## Beamforming
 
-**`Could not find MLBFXWave, which is the C++ beamformer.`**
-: The compiled beamformer is missing for this platform. Only a Windows build
-  (`MLBFXWave.mexw64`) is available at the moment. To run without it, use the
-  slow MATLAB stand-in: `./run_xam.sh --cpu-beamformer`.
+**`The GPU beamformer cannot run: …`**
+: The reason follows the colon: the Parallel Computing Toolbox is not installed
+  or licensed, or no usable NVIDIA GPU was found. Use the slow CPU beamformer
+  instead: `./run_xam.sh --cpu-beamformer`.
 
-**GPU code in MATLAB is very slow the first time, or `gpuDevice` seems to hang**
-: MATLAB releases older than the GPU (e.g. R2024b with an RTX 50-series card)
-  recompile their GPU libraries on first use, which can take 10 minutes or
-  more. Set the environment variable `CUDA_CACHE_MAXSIZE=4294967296` before
-  starting MATLAB so the result is cached (about 1 GB), and enable
-  `parallel.gpu.enableCUDAForwardCompatibility(true)`.
+**The first frame takes minutes, or `Recompiling GPU libraries because your device is more recent…`**
+: Expected once on a GPU newer than the MATLAB release (e.g. an RTX 50-series
+  GPU with R2024a): MATLAB compiles its GPU libraries for it on first use, from
+  about 30 s to several minutes. The script enables the required forward
+  compatibility itself. The result is kept in the CUDA cache if it is large
+  enough: `run_xam.sh` and `tests/run_tests.sh` set
+  `CUDA_CACHE_MAXSIZE=4294967296`; set it yourself before starting MATLAB in
+  other ways, or the compilation is repeated every session.
 
 ## Display
 

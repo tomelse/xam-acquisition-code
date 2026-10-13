@@ -11,8 +11,8 @@ useful for testing changes to the sequence, the GUI and data saving.
 ## Running a simulation
 
 ```bash
-./run_xam.sh --sim                       # with the compiled beamformer MLBFXWave
-./run_xam.sh --sim --cpu-beamformer      # without it (e.g. on Linux)
+./run_xam.sh --sim                       # with the GPU beamformer
+./run_xam.sh --sim --cpu-beamformer      # without a GPU
 ```
 
 `--sim` sets `Resource.Parameters.simulateMode = 1` (it is 0, hardware, by
@@ -37,11 +37,11 @@ issued for this computer (see [Installation](installation.md#verasonics-licence)
 
 ## Testing without the beamformer
 
-With `--cpu-beamformer` (or `P.use_cpu_beamformer = true`), a MATLAB
-delay-and-sum stand-in for `MLBFXWave`, `xw_beamform_cpu`, is used. It needs no
-compiled code but takes about 200 ms per image, so the frame rate drops to
-about 1-1.5 Hz. All controls, recording and the voltage sweep work. It has not
-been validated against `MLBFXWave`.
+With `--cpu-beamformer` (or `P.use_cpu_beamformer = true`), the MATLAB
+reference beamformer `xw_beamform_cpu` is used. It needs no GPU or compiled
+code, and gives the same images as `xw_beamform_gpu` (to within 1e-7), but
+takes about 200 ms per image, so the frame rate drops to about 1-1.5 Hz. All
+controls, recording and the voltage sweep work.
 
 In simulation, the transmit voltage does not change the simulated echoes, so a
 voltage sweep gives flat curves (see [Voltage sweep](voltage-sweep.md)).

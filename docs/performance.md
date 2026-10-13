@@ -51,21 +51,25 @@ uses the native byte order and stores it in `recording_info.mat`.
 | Step | CPU | GPU (RTX 5070 Ti) |
 | --- | --- | --- |
 | Split X/L/R and subtract | 58 ms | 14 ms (including upload to the GPU) |
-| Beamform 3 images (PW_L, PW_R, xAM) | ~600 ms | ~16 ms |
+| Beamform 3 images (PW_L, PW_R, xAM) | ~650 ms (`xw_beamform_cpu`) | ~26 ms (`xw_beamform_gpu`, including uploading the RF) |
 | Display update | ~1 ms | ~1 ms |
 
-The GPU numbers are from a vectorised MATLAB `gpuArray` delay-and-sum
-equivalent to the beamformer (results identical to the CPU version within
-2e-7). A compiled CUDA beamformer should be at least as fast. On the CPU,
-about 90 ms per image is spent on IQ demodulation.
+`xw_beamform_gpu` (MATLAB `gpuArray`) takes about 8.6 ms per image on the RTX
+5070 Ti in R2024a, about 25× faster than `xw_beamform_cpu`, and matches it to
+within 1e-7 (relative). Most of its time is uploading the RF block (~62 MB per
+image); computing X − L − R on the GPU from a single upload of the frame would
+save part of it. A hand-written CUDA kernel was about 5 ms per image, but
+needed a compiler setup that breaks on new Linux distributions, which is not
+worth 3.6 ms here. On the CPU, about 90 ms per image is spent on IQ
+demodulation.
 
 ### Frame-rate budget
 
 | Configuration | Time per frame | Maximum frame rate |
 | --- | --- | --- |
 | CPU beamforming, with or without RF recording | ~660 ms | ~1.5 Hz |
-| GPU beamforming (CPU split), with or without RF recording | ~75 ms | ~13 Hz |
-| GPU split and beamforming, with or without RF recording | ~32 ms | ~30 Hz |
+| GPU beamforming (CPU split), with or without RF recording | ~85 ms | ~11 Hz |
+| GPU split and beamforming, with or without RF recording | ~40 ms | ~25 Hz |
 | For comparison: GPU beamforming + synchronous `-v7.3` RF saving | ~185 ms | ~5 Hz |
 
 RF recording runs on background threads and adds only ~1-2 ms per frame, so

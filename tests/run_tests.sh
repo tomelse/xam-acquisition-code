@@ -7,8 +7,7 @@
 #   --hardware         run the integration test on the Vantage hardware instead.
 #                      The transducer transmits (at most 2.5 V): it must be in
 #                      water or on a phantom.
-#   --cpu-beamformer   use the MATLAB beamformer (automatic if there is no
-#                      compiled MLBFXWave for this platform)
+#   --cpu-beamformer   use the CPU beamformer (automatic if there is no NVIDIA GPU)
 #   --unit-only        only the unit tests (no VSX, no display needed)
 #   --keep-data        keep the data written by the tests (logs are always kept)
 #   -h, --help         show this help
@@ -57,6 +56,7 @@ run_matlab() { # log, time limit [s], matlab args...
 }
 
 FAILED=0
+export CUDA_CACHE_MAXSIZE="${CUDA_CACHE_MAXSIZE:-4294967296}" # keep compiled GPU libraries (see run_xam.sh)
 
 # ---------------------------------------------------------------- unit tests
 echo "== Unit tests"
@@ -73,8 +73,8 @@ if [[ $UNIT_ONLY -eq 0 ]]; then
     [[ -f "$VANTAGE_ROOT/VSX.m" ]] || { echo "Vantage software not found: $VANTAGE_ROOT (set VANTAGE_ROOT=...)" >&2; exit 2; }
     [[ -n "${DISPLAY:-}" ]] || { echo "No display (DISPLAY is not set): the integration test needs the VSX GUI." >&2; exit 2; }
 
-    if [[ -z "${XAM_CPU_BEAMFORMER:-}" ]] && ! ls "$REPO"/dependencies/reconstruct/MLBFXWave.mex* 2>/dev/null | grep -q -E "mexa64|mexmaca64|mexmaci64" && [[ "$(uname)" != MINGW* ]]; then
-        echo "   (no compiled MLBFXWave for this platform: using --cpu-beamformer)"
+    if [[ -z "${XAM_CPU_BEAMFORMER:-}" ]] && ! nvidia-smi -L > /dev/null 2>&1; then
+        echo "   (no NVIDIA GPU found: using --cpu-beamformer)"
         export XAM_CPU_BEAMFORMER=1
     fi
 

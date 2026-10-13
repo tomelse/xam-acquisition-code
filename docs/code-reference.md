@@ -48,9 +48,11 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | Function | Description |
 | --- | --- |
 | `xw_beamform_run` | External process function called per frame: splits X/L/R, forms `X − L − R`, beamforms `PW` and `xAM`, records, applies persistence, stores `BFData`. |
-| `xw_beamform_cpu` | Slow MATLAB stand-in for `MLBFXWave` (`--cpu-beamformer`). |
+| `xw_beamform_gpu` | GPU beamformer (`gpuArray`), the default. Same algorithm as `xw_beamform_cpu`; keeps the LUTs on the GPU between calls. |
+| `xw_beamform_gpu_available` | Checks for the Parallel Computing Toolbox and a usable GPU; enables CUDA forward compatibility for GPUs newer than MATLAB. |
+| `xw_beamform_cpu` | Slow reference beamformer, no GPU needed (`--cpu-beamformer`). |
 | `xw_beamform_compute_LUT` | Transmit and receive delay lookup tables, including the f-number mask, waveform peak and lens corrections. |
-| `MLBFXWave` | GPU beamformer (compiled; `MLBFXWave.m` only holds its documentation). |
+| `MLBFXWave.m` | Documentation of the beamformer interface (`BFIQ = f(BFC, RF, LUT_T, LUT_R)`) shared by all beamformers. A compiled `MLBFXWave`, if on the path, is used instead of `xw_beamform_cuda`. |
 
 ## `dependencies/display`
 

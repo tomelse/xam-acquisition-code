@@ -44,7 +44,7 @@
 %                                 at cost of max frame rate.
 %   P.transmit_frequency       : Transducer transmit frequency [MHz]
 %   P.use_cpu_beamformer       : Use the slow MATLAB stand-in xw_beamform_cpu
-%                                 instead of the compiled MLBFXWave. Default:
+%                                 instead of the compiled GPU beamformer. Default:
 %                                 true if XAM_CPU_BEAMFORMER=1 is set.
 %
 % Dependent parameters (computed from above):
@@ -165,7 +165,7 @@ P.num_accumulations = 1; % if >1, will accumulate RF data on the device. Keep lo
 P.use_adaptive_xwave_angle = true; % if true updates the xWave Angles dependent on the  imaging depth
 P.use_half_pitch_scanning = true;
 P.transmit_frequency = Trans.frequency; % transducer transmit frequency [MHz]
-P.use_cpu_beamformer = strcmp(getenv('XAM_CPU_BEAMFORMER'), '1'); % slow MATLAB stand-in for MLBFXWave (e.g. on Linux)
+P.use_cpu_beamformer = strcmp(getenv('XAM_CPU_BEAMFORMER'), '1'); % slow MATLAB beamformer instead of the GPU one
 
 P.num_pulses = 3; % number of pulses in xAM pulse sequence, hardcoded
 P.timetag_enabled = 1; % debug option, see time tags of frames
