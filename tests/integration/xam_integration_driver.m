@@ -20,7 +20,7 @@ function out = xam_integration_driver(cmd)
     if ~isfield(T, 'steps') % first call
         T.steps = {'wait_for_gui', 'start_sequence', 'persistence', 'dynamic_range', 'save_mode', ...
             'record_images', 'record_rf', 'record_stop_early', 'freeze', 'save_data_images', ...
-            'save_data_rf'};
+            'save_data_rf', 'offline_reconstruction'};
         if T.sweep, T.steps{end + 1} = 'voltage_sweep'; end
         if T.hardware, T.steps{end + 1} = 'time_tags'; end
         T.steps{end + 1} = 'close_vsx';
@@ -130,6 +130,7 @@ function [T, status, msg] = step_record_rf(T)
         check(isequal(size(RF, [1 2]), info.frame_size), 'RF frame size does not match recording_info');
         check(~isequal(RF(:, :, 1), RF(:, :, 2)), 'RF frames 1 and 2 are identical');
         msg = sprintf('3 RF frames saved and loaded (%s)', mat2str(size(RF)));
+        T.rf_folder = folder; % reconstructed offline in step_offline_reconstruction
     end
 end
 
@@ -173,6 +174,29 @@ end
 
 function [T, status, msg] = step_save_data_rf(T)
     [T, status, msg] = save_data_step(T, 'rf', 'RcvData');
+end
+
+function [T, status, msg] = step_offline_reconstruction(T)
+    % 1) the RF snapshot holds the 4 buffer frames and the live image of the last
+    %    processed one: offline reconstruction must reproduce it
+    S = load(fullfile(T.out, 'snapshots', 'snapshot_rf.mat'), 'P', 'Receive', 'Trans', 'TW', 'RcvData', 'BFData_raw');
+    check(isfield(S, 'BFData_raw') && isfield(S, 'RcvData'), 'RF snapshot without BFData_raw or RcvData');
+    R = xw_reconstruct_setup(S.P, S.Receive, S.Trans, S.TW);
+    d = inf(1, size(S.RcvData{1}, 3));
+    for f = 1:numel(d)
+        B = xw_reconstruct_frame(R, S.RcvData{1}(:, :, f));
+        d(f) = max(cellfun(@(m) max(abs(B.(m)(:) - S.BFData_raw.(m)(:))) / max(abs(S.BFData_raw.(m)(:))), R.modes));
+    end
+    [dmin, fbest] = min(d);
+    check(dmin < 1e-6, 'no buffer frame reproduces the live image (smallest difference %.2g)', dmin);
+    % 2) the example script on the RF recording made in step_record_rf
+    check(isfield(T, 'rf_folder'), 'no RF recording from step record_rf');
+    E = run_reconstruct_example(fullfile(T.repo, 'examples', 'reconstruct_rf.m'), T.rf_folder);
+    check(size(E.images.xAM, 3) == 3 && size(E.images_dB.PW, 3) == 3, 'example script did not reconstruct 3 frames');
+    check(isgraphics(E.fig), 'example script did not show the images');
+    close(E.fig);
+    status = 'pass';
+    msg = sprintf('buffer frame %i matches the live image (difference %.1g); example script made a 3-frame stack', fbest, dmin);
 end
 
 function [T, status, msg] = step_voltage_sweep(T)

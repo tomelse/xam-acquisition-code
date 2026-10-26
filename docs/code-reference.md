@@ -16,6 +16,12 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `run_xam.sh` | Terminal launcher: parses the options (`--sweep`, `--save`, `--sim`, …), passes them to MATLAB as `XAM_*` environment variables, and runs `xAM_imaging.m`. |
 | `xAM_imaging.m` | Sets parameters, builds the Verasonics structs (`Trans`, `TW`, `TX`, `Receive`, `TGC`, `Process`, `SeqControl`, `Event`, `UI`), saves them to `MatFiles/xAM_imaging.mat` and starts `VSX`. |
 
+## `examples`
+
+| File | Description |
+| --- | --- |
+| `reconstruct_rf.m` | Example script: reconstructs a saved RF recording or snapshot frame by frame, identically to the live view, and shows the image stack. A starting point for offline processing. |
+
 ## `dependencies/sequence`: setup and GUI callbacks
 
 | Function | Description |
@@ -47,7 +53,9 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 
 | Function | Description |
 | --- | --- |
-| `xw_beamform_run` | External process function called per frame: splits X/L/R, forms `X − L − R`, beamforms `PW` and `xAM`, records, applies persistence, stores `BFData`. |
+| `xw_beamform_run` | External process function called per frame: reconstructs the frame (`xw_reconstruct_frame`), records it, advances a sweep, applies persistence and stores `BFData`. |
+| `xw_reconstruct_setup` | Image grid, delay lookup tables and beamformer choice for a sequence. Shared by the live view and offline reconstruction. |
+| `xw_reconstruct_frame` | Reconstructs one frame of RF data: splits X/L/R, forms `X − L − R`, beamforms `PW` (and `xBmode`) and `xAM`. Shared by the live view and offline reconstruction. |
 | `xw_beamform_gpu` | GPU beamformer (`gpuArray`), the default. Same algorithm as `xw_beamform_cpu`; keeps the LUTs on the GPU between calls. |
 | `xw_beamform_gpu_available` | Checks for the Parallel Computing Toolbox and a usable GPU; enables CUDA forward compatibility for GPUs newer than MATLAB. |
 | `xw_beamform_cpu` | Slow reference beamformer, no GPU needed (`--cpu-beamformer`). |

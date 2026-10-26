@@ -55,6 +55,7 @@ each result:
 | `record_stop_early` | Pressing **Record** again stops a 20-frame recording |
 | `freeze` | No frames while frozen; acquisition resumes after unfreezing |
 | `save_data_images`, `save_data_rf` | **Save Data** writes a snapshot with `BFData` / `RcvData` |
+| `offline_reconstruction` | Offline reconstruction of the RF snapshot reproduces the live image exactly, and `examples/reconstruct_rf.m` reconstructs the RF recording |
 | `voltage_sweep` | A short **Voltage sweep** completes, sets each voltage, saves the results and plot, and restores the voltage |
 | `time_tags` (hardware only) | Hardware time tags increase from frame to frame |
 

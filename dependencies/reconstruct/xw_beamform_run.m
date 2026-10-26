@@ -1,188 +1,41 @@
 function BFData = xw_beamform_run(RFData)
+    % External process function called by VSX for every frame: reconstructs
+    % the images (xw_reconstruct_setup / xw_reconstruct_frame, shared with
+    % offline reconstruction in examples/reconstruct_rf.m), records the frame
+    % and advances a voltage sweep, applies persistence and puts BFData in
+    % the base workspace for display.
 
     fprintfd('Starting beamforming\n')
 
-    P = evalin('base', 'P');
-    Receive = evalin('base', 'Receive');
-    Trans = evalin('base', 'Trans');
-    TW = evalin('base', 'TW');
-
-    % defining parameters structure
-    param.p = Trans.spacingMm * 1e-3; % in [m]
-    param.lambda = P.scale_wvl2mm * 1e-3; % 1 wvl in [m]
-    param.c_us = P.speed_of_sound; % [m/s]
-    param.Fs = Receive(1).decimSampleRate * 1e6; % [Hz]
-    param.Fc = Receive(1).demodFrequency * 1e6; % [Hz] value was: P.fSI;
-    if isfield(P, 'fNumber')
-        param.f = P.fNumber; % f number
-    else
-        param.f = 1.28; % f number
+    % image grid, delay tables and beamformer, set up on the first frame
+    persistent R
+    if isempty(R)
+        R = xw_reconstruct_setup(evalin('base', 'P'), evalin('base', 'Receive'), ...
+            evalin('base', 'Trans'), evalin('base', 'TW'));
     end
 
-    % set beamforming modes, either run all modes, or select only xAM or
-    % xBmode, or subset.
-    if isfield(P, 'beamform_image_modes')
-        bf_modes = P.beamform_image_modes;
-    else
-        bf_modes = {'PW', 'xBmode', 'xAM'}; % choose from: or all {'PW', 'xBmode', 'xAM'}
-    end
-    checkmode = @(mode) ismember(mode, bf_modes); % function returns true if mode is turned ON.
-
-    %% =========================================================================
-    % Preprocess RF Data
-    % ==========================================================================
-
-    % look at time tag:
-    TimeTag = TimeTag2Sec(RFData(1:2, 1));
-  
-    % define min and max image depth and set z vector
-    %z_min =  (P.aperture_size_min - 1) * param.p / 2 * sind(max(P.ray_angle(:))); % [m]
-    z_min = P.image_start_depth_mm * 1e-3;
-    z_max = P.image_end_depth_mm * 1e-3;
-    z_vector = z_min:param.lambda / 2:z_max; % depth axis [m]
-    P.x_axis = interp1(1:Trans.numelements, Trans.ElementPos(:, 1), P.ray_positions) * 1e-3;
-    P.z_axis = z_vector;
-
-    % Separate RF, and reorder if needed
-    Nz_RF = Receive(1).endSample; % Offset for RF data
-    ntot = (Nz_RF * P.num_rays * P.num_angles);
-    inds = 1:ntot;
-    NFrames = size(RFData, 3);
-    RFStruct.PW_L = RFData(inds + 1 * ntot, :, :);
-    RFStruct.PW_R = RFData(inds + 2 * ntot, :, :);
-    RFStruct.XW = RFData(inds + 0 * ntot, :, :);
-
-    if NFrames > 1
-        RFStruct.PW_L = reshaper3to2D(RFStruct.PW_L);
-        RFStruct.PW_R = reshaper3to2D(RFStruct.PW_R);
-        RFStruct.XW = reshaper3to2D(RFStruct.XW);
-    end
-
-    % SUM RF for NONLINEAR IMAGING
-    RFStruct.XW_AM = RFStruct.XW - RFStruct.PW_R - RFStruct.PW_L;
-
-    % setup LUT, if not in function Workspace
-    persistent LUTStruct
-    if isempty(LUTStruct)
-        LUTStruct = xw_beamform_compute_LUT(bf_modes, z_vector, P, param, Trans, TW);
-        LUTStruct = structfun(@single, LUTStruct, 'UniformOutput', false); % cast to single.
-    end
-
-    % setup image reconstruction configuration.
-    persistent BFC beamform
-    if isempty(BFC)
-        warning OFF ParseStruct:notExistOrEmpty
-        if isfield(P, 'use_cpu_beamformer') && P.use_cpu_beamformer
-            beamform = @xw_beamform_cpu; % slow MATLAB reference, no GPU needed
-            fprintf('Using the CPU beamformer (xw_beamform_cpu)\n');
-        elseif exist('MLBFXWave', 'file') == 3 % a compiled MLBFXWave, if available
-            beamform = @MLBFXWave;
-        else
-            fprintf('Starting the GPU (the first time on a new GPU, MATLAB compiles its GPU libraries, which can take minutes)\n');
-            [gpu_ok, gpu_msg] = xw_beamform_gpu_available();
-            if ~gpu_ok
-                error('xw_beamform:nogpu', ['The GPU beamformer cannot run: %s.\n' ...
-                    'To use the slow CPU beamformer instead, set P.use_cpu_beamformer = true or run with --cpu-beamformer.'], gpu_msg);
-            end
-            beamform = @xw_beamform_gpu;
-            fprintf('Using the GPU beamformer (xw_beamform_gpu) on %s\n', gpu_msg);
-        end
-        BFC.XPiezo = Trans.ElementPos(:, 1) * 1e-3; % in m
-        BFC.ZPiezo = 0 * BFC.XPiezo;
-        BFC.Origin = [P.z_axis(1); P.x_axis(1)];
-        BFC.ScaleZ = P.z_axis(2) - P.z_axis(1);
-        BFC.ScaleX = P.x_axis(2) - P.x_axis(1);
-        BFC.Nx = numel(P.x_axis);
-        BFC.Nz = numel(P.z_axis);
-        BFC.Nz_RF = Nz_RF;
-        BFC.fNumber = param.f;
-        BFC.NTx = P.num_angles;
-        BFC.Angles = P.xwave_angles;
-        BFC.NAngles = P.num_angles;
-        BFC.NRays = P.num_rays;
-        BFC.NFrames = NFrames;
-        BFC.decimSampleRate = Receive(1).decimSampleRate * 1e6;
-        BFC.demodFrequency = Receive(1).demodFrequency * 1e6;
-        BFC.speedOfSound = P.speed_of_sound;
-        BFC.CorrectionForTW = 0; % already added to LUTs
-        BFC.CorrectionForLens = 0;
-        BFC.CorrectionForRcvData = 0;
-        BFC.connectorNeedOrder = 0;
-        % BFC.InterpMode = 'lagrange';
-        BFC.InterpMode = 'linear';
-        BFC.DemodMode = 'IQ'; % 'IQ' / 'none' / 'hilbert'
-        BFC.BFMode = 'XW';
-    end
-
-    % Run image reconstruction
-    if checkmode('PW')
-        PW_L = beamform(BFC, RFStruct.PW_L, LUTStruct.TX, LUTStruct.RX);
-        PW_R = beamform(BFC, RFStruct.PW_R, LUTStruct.TX, LUTStruct.RX);
-        BFData.PW = PW_R + PW_L; % sum left and right plane waves for compound image
-    end
-    if checkmode('xBmode'); BFData.xBmode = beamform(BFC, RFStruct.XW, LUTStruct.TX, LUTStruct.RX); end
-    if checkmode('xAM'); BFData.xAM = beamform(BFC, RFStruct.XW_AM, LUTStruct.TX, LUTStruct.RX); end
-    BFData.TimeTag = TimeTag; % keep time tag with bf'd data.
+    BFData = xw_reconstruct_frame(R, RFData);
 
     % save frame to disk if recording, and advance a voltage sweep
     xw_record_frame(RFData, BFData);
     xw_sweep_frame(BFData);
 
-    % apply persistence if set.
+    % apply persistence if set
     assignin('base', 'BFData_raw', BFData); % raw BFData without persistence
     persistence = evalin('base', 'UISTATES.persistence');
     if persistence < 1
         BFData_prev = evalin('base', 'BFData');
-        pfun = @(b, b_prev, f, p) p * b.(f) + (1 - p) * b_prev.(f);
-        if checkmode('PW'); BFData.PW = pfun(BFData, BFData_prev, 'PW', persistence); end
-        if checkmode('xBmode'); BFData.xBmode = pfun(BFData, BFData_prev, 'xBmode', persistence); end
-        if checkmode('xAM'); BFData.xAM = pfun(BFData, BFData_prev, 'xAM', persistence); end
+        for mode = R.modes
+            BFData.(mode{1}) = persistence * BFData.(mode{1}) + (1 - persistence) * BFData_prev.(mode{1});
+        end
     end
 
     % assign to base workspace
+    P = evalin('base', 'P');
+    P.x_axis = R.P.x_axis;
+    P.z_axis = R.P.z_axis;
     assignin('base', 'BFData', BFData);
-    assignin('base', 'LUTStruct', LUTStruct)
+    assignin('base', 'LUTStruct', R.LUT);
     assignin('base', 'P', P);
-    assignin('base', 'BFC', BFC);
-
-end
-
-function RF2 = reshaper3to2D(RF3)
-    % Stack frames along the rows: [rows, channels, frames] -> [rows*frames, channels],
-    % frame by frame, as expected by MLBFXWave with BFConfig.NFrames > 1.
-    [nrows, nchannels, nframes] = size(RF3);
-    RF2 = reshape(permute(RF3, [1 3 2]), nrows * nframes, nchannels);
-end
-
-function BFC = createEmptyBFConfig(P)
-    BFC.NFrames = 0;
-    BFC.NAngles = 0;
-    BFC.NTx = 0;
-    BFC.Nx = 0;
-    BFC.Nz = 0;
-    BFC.IQdemod = 0;
-    BFC.IQ_demodFreq = 0;
-    BFC.Nz_RF = 0;
-    BFC.InterpMode = '';
-    BFC.mode = '';
-    BFC.NXPiezo = 0;
-    BFC.decimSampleRate = 0;
-
-    BFC.ScaleZ = 0;
-    BFC.ScaleX = 0;
-    BFC.fNumber = 0;
-    BFC.ptSourceZ0 = 0;
-    BFC.samplesPerWave = 0;
-    BFC.demodFrequency = 0;
-    BFC.speedOfSound = 0;
-    BFC.CorrectionForTW = 0;
-    BFC.CorrectionForLens = 0;
-    BFC.CorrectionForRcvData = 0;
-    BFC.Origin = [0; 0];
-    BFC.ZPiezo = zeros(128, 1);
-    BFC.XPiezo = zeros(128, 1);
-    BFC.Angles = zeros(P.num_rays, 1);
-    BFC.addToDelay = zeros(P.num_rays, 1);
-    BFC.ptSourceX = zeros(P.num_rays, 1);
-    BFC.ptSourceZ = zeros(P.num_rays, 1);
+    assignin('base', 'BFC', R.BFC);
 end

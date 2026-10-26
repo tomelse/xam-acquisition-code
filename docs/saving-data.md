@@ -117,6 +117,19 @@ frame can be passed directly to `xw_beamform_run` for offline
 reconstruction. Only complete frame files are read; asking for a missing or
 incomplete frame gives an error that lists the frames that are available.
 
+### Reconstructing RF data offline
+
+`examples/reconstruct_rf.m` reconstructs a saved RF recording folder or RF
+snapshot with the same code as the live view (`xw_reconstruct_setup`,
+`xw_reconstruct_frame`), giving identical images, and shows the image stack:
+
+```matlab
+data_path = 'data/20261013_151911_rf';
+run('examples/reconstruct_rf.m')   % leaves images, images_dB, x_mm, z_mm in the workspace
+```
+
+It is meant as a starting point for your own processing.
+
 ### Loading RF recordings in Python
 
 ```python

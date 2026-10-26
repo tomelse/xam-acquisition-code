@@ -1,7 +1,7 @@
 % =========================================================================
 % Cross-Amplitude Modulation (xAM) Ultrasound Imaging
 % =========================================================================
-% 
+%
 % This script implements the xAM imaging paradigm for artifact-free detection
 % of gas vesicles (GVs). By transmitting cross-propagating plane waves,
 % xAM suppresses nonlinear propagation artifacts while preserving nonlinear
@@ -57,7 +57,7 @@
 % -------------------------------------------------------------------------
 % Output Data (struct BFData)
 % -------------------------------------------------------------------------
-% Data is beamformed on a fixed image grid of P.x_axis and P.z_axis. 
+% Data is beamformed on a fixed image grid of P.x_axis and P.z_axis.
 % After beamforming, data is returned in the struct BFData with fields:
 %
 %   BFData.PW       : B-mode image (complex IQ) reconstructed from plane-wave
@@ -65,7 +65,7 @@
 %
 %   BFData.xAM      : xAM image (complex IQ) highlighting GV-specific contrast
 %                     [pixels: depth × lateral]
-%   
+%
 %   BFData.TimeTag  : Time stamp of recorded data (numeric)
 %
 % =========================================================================
@@ -156,6 +156,7 @@ Resource.Parameters.speedCorrectionFactor = 1.0;
 Resource.Parameters.simulateMode = double(strcmp(getenv('XAM_SIMULATE'), '1')); % 1: simulation, 0: hardware (run_xam.sh --sim sets 1)
 Resource.Parameters.fakeScanhead = 0;
 Resource.VDAS.dmaTimeout = 1000 * 4; % 4 seconds
+Resource.VDAS.acqTimeTagEnable = 1;
 Resource.Parameters.waitForProcessing = 1;
 
 % Compute and set dependent parameters
@@ -337,32 +338,32 @@ PN.image_reconstruct = np;
 Process(np).classname = 'External';
 Process(np).method = 'xw_beamform_run';
 Process(np).Parameters = {'srcbuffer', 'receive', ...
-                              'srcbufnum', 1, ...
-                              'srcframenum', -1, ...
-                              'dstbuffer', 'none'};
+    'srcbufnum', 1, ...
+    'srcframenum', -1, ...
+    'dstbuffer', 'none'};
 np = np + 1;
 
 PN.image_reconstruct_init = np;
 Process(np).classname = 'External';
 Process(np).method = 'xw_beamform_run';
 Process(np).Parameters = {'srcbuffer', 'receive', ...
-                              'srcbufnum', 1, ...
-                              'srcframenum', 1, ...
-                              'dstbuffer', 'none'};
+    'srcbufnum', 1, ...
+    'srcframenum', 1, ...
+    'dstbuffer', 'none'};
 np = np + 1;
 
 PN.image_display = np;
 Process(np).classname = 'External';
 Process(np).method = 'xw_plot';
 Process(np).Parameters = {'srcbuffer', 'none', ...
-                              'dstbuffer', 'none'};
+    'dstbuffer', 'none'};
 np = np + 1;
 
 PN.saveAcqPars = np;
 Process(np).classname = 'External'; % process structure for 1st Doppler ensemble
 Process(np).method = 'xw_sequence_save_acquisition_parameters';
 Process(np).Parameters = {'srcbuffer', 'none', ... % name of buffer to process.
-                              'dstbuffer', 'none'};
+    'dstbuffer', 'none'};
 np = np + 1;
 
 %% =============================================================================
@@ -623,23 +624,23 @@ UISTATES = struct;
 P.image_persistence = 1;
 UISTATES.persistence = P.image_persistence;
 UI(n_ui).Control = {'UserB6', 'Style', 'VsSlider', 'Label', 'Persistence', ...
-                        'SliderMinMaxVal', [0.1, 1, P.image_persistence], ...
-                        'SliderStep', [0.01, 0.1], 'ValueFormat', '%1.2f'};
+    'SliderMinMaxVal', [0.1, 1, P.image_persistence], ...
+    'SliderStep', [0.01, 0.1], 'ValueFormat', '%1.2f'};
 UI(n_ui).Callback = {'xw_change_persistence(UIValue)'};
 n_ui = n_ui + 1;
 
 UISTATES.dr_bmode = 40; % dynamic range B-mode
 % UserC7 and UserC8 hold the VSX PreSet and Tools controls, so use C6 and C5
 UI(n_ui).Control = {'UserC6', 'Style', 'VsSlider', 'Label', 'DR B-Mode', ...
-                        'SliderMinMaxVal', [0, 60, UISTATES.dr_bmode], ...
-                        'SliderStep', [0.01, 0.1], 'ValueFormat', '%2.1fdB'};
+    'SliderMinMaxVal', [0, 60, UISTATES.dr_bmode], ...
+    'SliderStep', [0.01, 0.1], 'ValueFormat', '%2.1fdB'};
 UI(n_ui).Callback = {'xw_change_dr(''bmode'', UIValue)'};
 n_ui = n_ui + 1;
 
 UISTATES.dr_xam = 20; % dynamic range minimum
 UI(n_ui).Control = {'UserC5', 'Style', 'VsSlider', 'Label', 'DR xAM', ...
-                        'SliderMinMaxVal', [0, 30, UISTATES.dr_xam], ...
-                        'SliderStep', [0.01, 0.1], 'ValueFormat', '%2.1fdB'};
+    'SliderMinMaxVal', [0, 30, UISTATES.dr_xam], ...
+    'SliderStep', [0.01, 0.1], 'ValueFormat', '%2.1fdB'};
 UI(n_ui).Callback = {'xw_change_dr(''xam'', UIValue)'};
 n_ui = n_ui + 1;
 
@@ -654,7 +655,7 @@ if strcmp(UISTATES.save_mode, 'rf')
     save_mode_labels = fliplr(save_mode_labels);
 end
 UI(n_ui).Control = {'UserB4', 'Style', 'VsButtonGroup', 'Title', 'Save mode', ...
-                        'NumButtons', 2, 'Labels', save_mode_labels};
+    'NumButtons', 2, 'Labels', save_mode_labels};
 UI(n_ui).Callback = {'xw_change_save_mode(UIState)'};
 n_ui = n_ui + 1;
 
@@ -666,8 +667,8 @@ n_ui = n_ui + 1;
 % record a series of frames while running (press again to stop early)
 UISTATES.record_num_frames = P.record_num_frames;
 UI(n_ui).Control = {'UserC3', 'Style', 'VsSlider', 'Label', 'Rec. frames', ...
-                        'SliderMinMaxVal', [1, 500, UISTATES.record_num_frames], ...
-                        'SliderStep', [1 / 499, 10 / 499], 'ValueFormat', '%3.0f'};
+    'SliderMinMaxVal', [1, 500, UISTATES.record_num_frames], ...
+    'SliderStep', [1 / 499, 10 / 499], 'ValueFormat', '%3.0f'};
 UI(n_ui).Callback = {'xw_change_record_frames(UIValue)'};
 n_ui = n_ui + 1;
 
