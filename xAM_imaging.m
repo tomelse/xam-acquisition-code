@@ -108,6 +108,7 @@ P.aperture_size_max = 64; % max number of elements in active aperture
 
 P.transmit_apodization = 'tukey'; % Apodization to avoid edge waves. Options: none/kaiser/hamming/tukey
 P.fps = 2; % acquisition frame rate in [Hz]
+if ~isempty(getenv('XAM_FPS')), P.fps = str2double(getenv('XAM_FPS')); end % tests/run_tests.sh --fps
 
 P.save_path = fullfile(repo_root, 'data'); % default path for data saving
 if ~isempty(getenv('XAM_DATA_PATH')); P.save_path = getenv('XAM_DATA_PATH'); end % e.g. set by tests/run_tests.sh
@@ -169,6 +170,7 @@ P.transmit_frequency = Trans.frequency; % transducer transmit frequency [MHz]
 P.use_cpu_beamformer = strcmp(getenv('XAM_CPU_BEAMFORMER'), '1'); % slow MATLAB beamformer instead of the GPU one
 
 P.num_pulses = 3; % number of pulses in xAM pulse sequence, hardcoded
+P.num_chunks = 8; % the frame is transferred and reconstructed in this many groups of rays, while the next rays are acquired (1 = whole frame at the end). Needs num_accumulations = 1.
 P.timetag_enabled = 1; % debug option, see time tags of frames
 P.num_rf_frames = 4; % must be >4 or even number, don't change
 P.beamform_image_modes = {'PW', 'xAM'}; % PW = bf(\)+bf(/), xBmode = bf(X), xAM = bf(X-\-/)
@@ -193,6 +195,15 @@ assert(P.num_rf_frames >= 4, 'num_rf_frames must be at least 4');
 P.scale_wvl2mm = (Resource.Parameters.speedOfSound / Trans.frequency) * 1e-3; % length of 1 wavelength in mm
 P.scale_mm2wvl = Trans.frequency / (Resource.Parameters.speedOfSound / 1000); %wavelength per mm
 P.num_angles = numel(P.xwave_angles);
+
+% receive buffer: all pulses of a ray together (so that groups of rays, chunks, can be transferred
+% and reconstructed while the next rays are acquired)
+P.rf_layout = 'ray-major';
+if P.num_accumulations > 1 && P.num_chunks > 1
+    warning('num_chunks is set to 1: chunks need num_accumulations = 1');
+end
+if P.num_accumulations > 1, P.num_chunks = 1; end
+P.num_chunks = numel(xw_chunk_rays(P.num_rays, P.num_chunks));
 
 % specify Media object
 pt1;
@@ -268,6 +279,14 @@ Receive = repmat(struct('Apod', zeros(1, Trans.numelements), ...
     'callMediaFunc', 0), ...
     1, nRcvObj_p_frame * P.num_rf_frames);
 
+% Receive structures are ordered by acquisition number within a frame: for every ray the 3 pulses
+% (X, L, R) with all angles each. rcv_index gives the position in the Receive array (pulse 0..2,
+% accum = 1 for the structures that accumulate onto the first ones), rcv_acq_num the acqNum
+% (the position of the acquisition in the frame of the receive buffer).
+rcv_acq_num = @(ray, pulse, angle) ((ray - 1) * P.num_pulses + pulse) * P.num_angles + angle;
+rcv_index = @(ray, pulse, angle, frame, accum) rcv_acq_num(ray, pulse, angle) ...
+    + (frame - 1) * nRcvObj_p_accum + accum * nRcvObj_p_accum * P.num_rf_frames;
+
 % Set event specific Receive and TX attributes.
 % Compute transmit delays
 P.ray_angle = zeros(P.num_angles, P.num_rays); % xWave angles per ray
@@ -277,44 +296,26 @@ for idx_ray = 1:P.num_rays
         TX = xw_setup_build_transmit(TX, idx_tx, idx_ray, idx_angle, Trans, P);
 
         for idx_frame = 1:P.num_rf_frames
-            idx = idx_angle + (idx_ray - 1) * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum;
+            for idx_pulse = 0:P.num_pulses - 1 % X pulse, left active aperture, right active aperture
+                idx = rcv_index(idx_ray, idx_pulse, idx_angle, idx_frame, 0);
 
-            if (idx_ray == 1 && idx_angle == 1)
-                Receive(idx).callMediaFunc = 1; % 1 for all 3 pulses
-            end
+                if (idx_ray == 1 && idx_angle == 1 && idx_pulse == 0)
+                    Receive(idx).callMediaFunc = 1;
+                end
 
-            Receive(idx).Apod(:) = 1.0; % activate all elements
-            Receive(idx).mode = 0;
-            Receive(idx).framenum = idx_frame;
-            Receive(idx).acqNum = idx_angle + (idx_ray - 1) * P.num_angles; % for X pulse
-
-            Receive(idx + P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
-            Receive(idx + P.num_angles * P.num_rays).mode = 0;
-            Receive(idx + P.num_angles * P.num_rays).framenum = idx_frame;
-            Receive(idx + P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * P.num_rays; % for left active aperture
-
-            Receive(idx + 2 * P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
-            Receive(idx + 2 * P.num_angles * P.num_rays).mode = 0;
-            Receive(idx + 2 * P.num_angles * P.num_rays).framenum = idx_frame;
-            Receive(idx + 2 * P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * 2 * P.num_rays; % for right active aperture
-
-            if P.use_accumulation
-                idx = idx_angle + (idx_ray - 1) * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum + nRcvObj_p_accum * P.num_rf_frames;
-
-                Receive(idx).mode = 1; % activate all elements
                 Receive(idx).Apod(:) = 1.0; % activate all elements
+                Receive(idx).mode = 0;
                 Receive(idx).framenum = idx_frame;
-                Receive(idx).acqNum = idx_angle + (idx_ray - 1) * P.num_angles; % for X pulse
+                Receive(idx).acqNum = rcv_acq_num(idx_ray, idx_pulse, idx_angle);
 
-                Receive(idx + P.num_angles * P.num_rays).mode = 1;
-                Receive(idx + P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
-                Receive(idx + P.num_angles * P.num_rays).framenum = idx_frame;
-                Receive(idx + P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * P.num_rays; % for left active aperture
+                if P.use_accumulation
+                    idx = rcv_index(idx_ray, idx_pulse, idx_angle, idx_frame, 1);
 
-                Receive(idx + 2 * P.num_angles * P.num_rays).mode = 1;
-                Receive(idx + 2 * P.num_angles * P.num_rays).Apod = Receive(idx).Apod;
-                Receive(idx + 2 * P.num_angles * P.num_rays).framenum = idx_frame;
-                Receive(idx + 2 * P.num_angles * P.num_rays).acqNum = idx_angle + (idx_ray - 1) * P.num_angles + P.num_angles * 2 * P.num_rays; % for right active aperture
+                    Receive(idx).mode = 1;
+                    Receive(idx).Apod(:) = 1.0; % activate all elements
+                    Receive(idx).framenum = idx_frame;
+                    Receive(idx).acqNum = rcv_acq_num(idx_ray, idx_pulse, idx_angle);
+                end
             end
         end
     end
@@ -342,6 +343,22 @@ Process(np).Parameters = {'srcbuffer', 'receive', ...
     'srcframenum', -1, ...
     'dstbuffer', 'none'};
 np = np + 1;
+
+% with chunks: one process per group of rays, reconstructing when these have been transferred
+PN.image_reconstruct_chunk = zeros(1, P.num_chunks);
+EF = struct('FunctionName', {}, 'FunctionHandle', {});
+for idx_chunk = 1:P.num_chunks * (P.num_chunks > 1)
+    PN.image_reconstruct_chunk(idx_chunk) = np;
+    Process(np).classname = 'External';
+    Process(np).method = sprintf('xw_beamform_chunk%02i', idx_chunk);
+    Process(np).Parameters = {'srcbuffer', 'receive', ...
+        'srcbufnum', 1, ...
+        'srcframenum', -1, ...
+        'dstbuffer', 'none'};
+    EF(idx_chunk) = struct('FunctionName', Process(np).method, ...
+        'FunctionHandle', @(RData) xw_beamform_run(RData, idx_chunk));
+    np = np + 1;
+end
 
 PN.image_reconstruct_init = np;
 Process(np).classname = 'External';
@@ -440,13 +457,15 @@ n = n + 1;
 EN.StartEvent = n;
 SeqControl(SC.jump).argument = EN.StartEvent; % set here
 
+chunk_rays = xw_chunk_rays(P.num_rays, P.num_chunks);
 for idx_frame = 1:P.num_rf_frames
-    for idx_ray = 1:P.num_rays % 1st set of acquisitions
+  for idx_chunk = 1:P.num_chunks
+    for idx_ray = chunk_rays{idx_chunk} % 1st set of acquisitions
         for idx_angle = 1:P.num_angles
             idx_TX = idx_angle + (idx_ray - 1) * P.num_angles;
             Event(n).info = sprintf('Acquire X R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
             Event(n).tx = idx_TX;
-            Event(n).rcv = idx_TX + (idx_frame - 1) * nRcvObj_p_accum;
+            Event(n).rcv = rcv_index(idx_ray, 0, idx_angle, idx_frame, 0);
             Event(n).recon = 0;
             Event(n).process = 0;
             Event(n).seqControl = SC.ttna; % Time between acquisitions
@@ -454,7 +473,7 @@ for idx_frame = 1:P.num_rf_frames
 
             Event(n).info = sprintf('Acquire L R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
             Event(n).tx = idx_TX + P.num_rays * P.num_angles;
-            Event(n).rcv = idx_TX + P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum;
+            Event(n).rcv = rcv_index(idx_ray, 1, idx_angle, idx_frame, 0);
             Event(n).recon = 0;
             Event(n).process = 0;
             Event(n).seqControl = SC.ttna; % Time between acquisitions
@@ -462,16 +481,60 @@ for idx_frame = 1:P.num_rf_frames
 
             Event(n).info = sprintf('Acquire R R%03i A%02i F%02i', idx_ray, idx_angle, idx_frame);
             Event(n).tx = idx_TX + 2 * P.num_rays * P.num_angles;
-            Event(n).rcv = idx_TX + 2 * P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum;
+            Event(n).rcv = rcv_index(idx_ray, 2, idx_angle, idx_frame, 0);
             Event(n).recon = 0;
             Event(n).process = 0;
             Event(n).seqControl = SC.ttna; % Time between acquisitions
             n = n + 1;
         end
     end
-    if ~P.use_accumulation
+
+    if idx_chunk == P.num_chunks && ~P.use_accumulation
         Event(n - 1).seqControl = SC.ttna_frame; % Time between acquisitions
     end
+    if P.num_chunks > 1
+        % transfer the rays acquired so far, reconstruct them while the next rays are acquired
+        Event(n).info = sprintf('Transfer chunk %i to host buffer', idx_chunk);
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = nsc;
+        SeqControl(nsc).command = 'transferToHost';
+        nsc = nsc + 1;
+        n = n + 1;
+
+        Event(n).info = sprintf('waitForTransferComplete chunk %i', idx_chunk);
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = nsc;
+        SeqControl(nsc).command = 'waitForTransferComplete';
+        SeqControl(nsc).argument = nsc - 1;
+        nsc = nsc + 1;
+        n = n + 1;
+
+        Event(n).info = sprintf('Image Reconstruct chunk %i', idx_chunk);
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = PN.image_reconstruct_chunk(idx_chunk);
+        Event(n).seqControl = 0;
+        n = n + 1;
+
+        Event(n).info = sprintf('markTransferProcessed chunk %i', idx_chunk);
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = nsc;
+        SeqControl(nsc).command = 'markTransferProcessed';
+        SeqControl(nsc).argument = nsc - 2;
+        nsc = nsc + 1;
+        n = n + 1;
+    end
+  end
 
     if P.use_accumulation
         Event(n).info = 'Set loop count for number of accumulates.';
@@ -500,7 +563,7 @@ for idx_frame = 1:P.num_rf_frames
                 idx_TX = idx_angle + (idx_ray - 1) * P.num_angles;
                 Event(n).info = sprintf('Acquire X R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
                 Event(n).tx = idx_TX;
-                Event(n).rcv = idx_TX + nRcvObj_p_accum * P.num_rf_frames + (idx_frame - 1) * nRcvObj_p_accum; % use next receive structure
+                Event(n).rcv = rcv_index(idx_ray, 0, idx_angle, idx_frame, 1); % use next receive structure
                 Event(n).recon = 0;
                 Event(n).process = 0;
                 Event(n).seqControl = SC.ttna; % Time between acquisitions
@@ -508,7 +571,7 @@ for idx_frame = 1:P.num_rf_frames
 
                 Event(n).info = sprintf('Acquire L R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
                 Event(n).tx = idx_TX + P.num_rays * P.num_angles;
-                Event(n).rcv = idx_TX + nRcvObj_p_accum * P.num_rf_frames + P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum; % use next receive structure
+                Event(n).rcv = rcv_index(idx_ray, 1, idx_angle, idx_frame, 1); % use next receive structure
                 Event(n).recon = 0;
                 Event(n).process = 0;
                 Event(n).seqControl = SC.ttna; % Time between acquisitions
@@ -516,7 +579,7 @@ for idx_frame = 1:P.num_rf_frames
 
                 Event(n).info = sprintf('Acquire R R%03i A%02i F%02i accum', idx_ray, idx_angle, idx_frame);
                 Event(n).tx = idx_TX + 2 * P.num_rays * P.num_angles;
-                Event(n).rcv = idx_TX + nRcvObj_p_accum * P.num_rf_frames + 2 * P.num_rays * P.num_angles + (idx_frame - 1) * nRcvObj_p_accum; % use next receive structure
+                Event(n).rcv = rcv_index(idx_ray, 2, idx_angle, idx_frame, 1); % use next receive structure
                 Event(n).recon = 0;
                 Event(n).process = 0;
                 Event(n).seqControl = SC.ttna; % Time between acquisitions
@@ -545,47 +608,49 @@ for idx_frame = 1:P.num_rf_frames
         n = n + 1;
     end
 
-    Event(n).info = 'Transfer frame to host buffer';
-    Event(n).tx = 0;
-    Event(n).rcv = 0;
-    Event(n).recon = 0;
-    Event(n).process = 0;
-    Event(n).seqControl = [nsc];
-    SeqControl(nsc).command = 'transferToHost'; % transfer frame to host buffer
-    nsc = nsc + 1;
-    n = n + 1;
+    if P.num_chunks == 1 % otherwise transferred and reconstructed per chunk, above
+        Event(n).info = 'Transfer frame to host buffer';
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = [nsc];
+        SeqControl(nsc).command = 'transferToHost'; % transfer frame to host buffer
+        nsc = nsc + 1;
+        n = n + 1;
 
-    Event(n).info = 'waitForTransferComplete';
-    Event(n).tx = 0;
-    Event(n).rcv = 0;
-    Event(n).recon = 0;
-    Event(n).process = 0;
-    Event(n).seqControl = nsc; % waitForTransferComplete
-    n = n + 1;
-    % set waitTransfer to reference last SeqControl
-    SeqControl(nsc).command = 'waitForTransferComplete'; % wait for transfer complete, needed for large superframes
-    SeqControl(nsc).argument = nsc - 1;
-    nsc = nsc + 1;
+        Event(n).info = 'waitForTransferComplete';
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = nsc; % waitForTransferComplete
+        n = n + 1;
+        % set waitTransfer to reference last SeqControl
+        SeqControl(nsc).command = 'waitForTransferComplete'; % wait for transfer complete, needed for large superframes
+        SeqControl(nsc).argument = nsc - 1;
+        nsc = nsc + 1;
 
-    Event(n).info = 'Image Reconstruct';
-    Event(n).tx = 0;
-    Event(n).rcv = 0;
-    Event(n).recon = 0;
-    Event(n).process = PN.image_reconstruct;
-    Event(n).seqControl = 0; %
-    n = n + 1;
+        Event(n).info = 'Image Reconstruct';
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = PN.image_reconstruct;
+        Event(n).seqControl = 0; %
+        n = n + 1;
 
-    Event(n).info = 'markTransferProcessed';
-    Event(n).tx = 0;
-    Event(n).rcv = 0;
-    Event(n).recon = 0;
-    Event(n).process = 0;
-    Event(n).seqControl = nsc; % markTransferProcessed
-    n = n + 1;
-    % set waitTransfer to reference last SeqControl
-    SeqControl(nsc).command = 'markTransferProcessed'; % wait for transfer complete, needed for large superframes
-    SeqControl(nsc).argument = nsc - 2;
-    nsc = nsc + 1;
+        Event(n).info = 'markTransferProcessed';
+        Event(n).tx = 0;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = nsc; % markTransferProcessed
+        n = n + 1;
+        % set waitTransfer to reference last SeqControl
+        SeqControl(nsc).command = 'markTransferProcessed'; % wait for transfer complete, needed for large superframes
+        SeqControl(nsc).argument = nsc - 2;
+        nsc = nsc + 1;
+    end
 
     Event(n).info = 'Image Display';
     Event(n).tx = 0;

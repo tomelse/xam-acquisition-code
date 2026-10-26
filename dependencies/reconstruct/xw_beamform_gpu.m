@@ -12,14 +12,25 @@ function BFIQ = xw_beamform_gpu(BFC, RF, LUT_T, LUT_R)
     %   BFIQ  : [Nz, NRays, NFrames] complex single (on the CPU)
     %
     %   The LUTs are kept on the GPU between calls and only uploaded again when
-    %   they change. Use xw_beamform_gpu_available to check for a usable GPU.
+    %   they change. LUTs that are gpuArrays already are used as they are. Use
+    %   xw_beamform_gpu_available to check for a usable GPU.
 
     persistent lut_t_cpu lut_r_cpu lut_t_gpu lut_r_gpu
-    if ~isequal(LUT_T, lut_t_cpu)
-        lut_t_cpu = LUT_T; lut_t_gpu = gpuArray(single(LUT_T));
+    if isa(LUT_T, 'gpuArray')
+        lut_t_use = LUT_T;
+    else
+        if ~isequal(LUT_T, lut_t_cpu)
+            lut_t_cpu = LUT_T; lut_t_gpu = gpuArray(single(LUT_T));
+        end
+        lut_t_use = lut_t_gpu;
     end
-    if ~isequal(LUT_R, lut_r_cpu)
-        lut_r_cpu = LUT_R; lut_r_gpu = gpuArray(single(LUT_R));
+    if isa(LUT_R, 'gpuArray')
+        lut_r_use = LUT_R;
+    else
+        if ~isequal(LUT_R, lut_r_cpu)
+            lut_r_cpu = LUT_R; lut_r_gpu = gpuArray(single(LUT_R));
+        end
+        lut_r_use = lut_r_gpu;
     end
 
     rows_per_frame = BFC.Nz_RF * BFC.NAngles * BFC.NRays;
@@ -29,7 +40,7 @@ function BFIQ = xw_beamform_gpu(BFC, RF, LUT_T, LUT_R)
     RFg = gpuArray(RF);
     BFIQ = complex(zeros(size(LUT_T, 1), BFC.NRays, nF, 'single', 'gpuArray'));
     for f = 1:nF
-        BFIQ(:, :, f) = beamform_frame(BFC, RFg((f - 1) * rows_per_frame + (1:rows_per_frame), :), lut_t_gpu, lut_r_gpu);
+        BFIQ(:, :, f) = beamform_frame(BFC, RFg((f - 1) * rows_per_frame + (1:rows_per_frame), :), lut_t_use, lut_r_use);
     end
     BFIQ = gather(BFIQ);
 end

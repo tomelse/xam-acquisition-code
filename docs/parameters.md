@@ -47,6 +47,7 @@ normally set with `run_xam.sh --sweep` and `--sweep-frames`.
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `P.num_accumulations` | `1` | Number of RF acquisitions summed on the hardware per transmit. Increases SNR but lowers the maximum frame rate, and can clip the signal. |
+| `P.num_chunks` | `8` | The frame is transferred and beamformed in this many groups of rays while the next rays are acquired (1 = whole frame at the end). Images are identical. Needs `num_accumulations = 1`. See [How it works](how-it-works.md). |
 | `P.use_adaptive_xwave_angle` | `true` | Lowers the xWave angle for rays near the array edges (smaller apertures), so the plane waves still cross down to the maximum depth. |
 | `P.use_half_pitch_scanning` | `true` | Places rays every half element instead of every element: twice the lateral sampling, half the maximum frame rate. |
 | `P.transmit_frequency` | `Trans.frequency` | Transmit frequency [MHz]. |

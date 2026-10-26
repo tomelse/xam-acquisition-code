@@ -22,7 +22,7 @@ function out = xam_integration_driver(cmd)
             'record_images', 'record_rf', 'record_stop_early', 'freeze', 'save_data_images', ...
             'save_data_rf', 'offline_reconstruction'};
         if T.sweep, T.steps{end + 1} = 'voltage_sweep'; end
-        if T.hardware, T.steps{end + 1} = 'time_tags'; end
+        if T.hardware, T.steps(end + 1:end + 3) = {'time_tags', 'chunk_timing', 'frame_rate'}; end
         T.steps{end + 1} = 'close_vsx';
         T.k = 1; T.phase = 0; T.t = tic; T.frames = 0; T.sig = NaN; T.busy = false;
         T.results = struct('name', {}, 'status', {}, 'message', {}, 'seconds', {});
@@ -181,6 +181,7 @@ function [T, status, msg] = step_offline_reconstruction(T)
     %    processed one: offline reconstruction must reproduce it
     S = load(fullfile(T.out, 'snapshots', 'snapshot_rf.mat'), 'P', 'Receive', 'Trans', 'TW', 'RcvData', 'BFData_raw');
     check(isfield(S, 'BFData_raw') && isfield(S, 'RcvData'), 'RF snapshot without BFData_raw or RcvData');
+    check(S.P.num_chunks > 1, 'the live view did not reconstruct in chunks (P.num_chunks = %i)', S.P.num_chunks);
     R = xw_reconstruct_setup(S.P, S.Receive, S.Trans, S.TW);
     d = inf(1, size(S.RcvData{1}, 3));
     for f = 1:numel(d)
@@ -234,6 +235,39 @@ function [T, status, msg] = step_time_tags(T)
             if numel(T.tags) < 4, return; end
             check(all(diff(T.tags) > 0), 'time tags not increasing: %s', mat2str(T.tags, 4));
             status = 'pass'; msg = sprintf('time tags increase, mean frame interval %.3f s', mean(diff(T.tags)));
+    end
+end
+
+function [T, status, msg] = step_chunk_timing(T)
+    % Hardware only: time tags of the acquisitions in the RF snapshot show whether
+    % the chunk transfers (sub-frame DMA) disturb the acquisition timing
+    S = load(fullfile(T.out, 'snapshots', 'snapshot_rf.mat'), 'P', 'RcvData');
+    C = xw_chunk_timing(S.P, S.RcvData{1});
+    check(C.increasing, 'time tags of the acquisitions do not increase');
+    check(abs(C.within_chunk - C.ttna) < 1.5 * 25e-6, 'acquisitions within a chunk are %.0f us apart, expected ttna = %.0f us', ...
+        C.within_chunk * 1e6, C.ttna * 1e6);
+    status = 'pass';
+    msg = sprintf('%i chunks: within a chunk %.0f us apart (ttna %.0f); extra pause at chunk boundaries %.0f us (max %.0f); frame acquired in %.2f ms instead of %.2f ms', ...
+        C.num_chunks, C.within_chunk * 1e6, C.ttna * 1e6, mean(C.pause) * 1e6, max(C.pause) * 1e6, C.span * 1e3, C.span_expected * 1e3);
+end
+
+function [T, status, msg] = step_frame_rate(T)
+    % Hardware only: the achieved frame rate (from the time tags) must be P.fps.
+    % Set a rate close to P.max_framerate with run_tests.sh --fps
+    [T, status, msg] = wait_phase(T);
+    switch T.phase
+        case 0
+            T.tags = []; T.f0 = T.frames; T.phase = 1;
+        case 1
+            if T.frames > T.f0, T.tags(end + 1) = base('BFData_raw.TimeTag'); T.f0 = T.frames; end
+            msg = sprintf('%i frames so far', numel(T.tags));
+            if numel(T.tags) < 20, return; end
+            fps = 1 / mean(diff(T.tags));
+            P_fps = base('P.fps'); P_max = base('P.max_framerate');
+            check(abs(fps / P_fps - 1) < 0.05, 'frame rate is %.2f Hz, requested %.2f Hz (maximum %.1f Hz); slowest frame interval %.1f ms', ...
+                fps, P_fps, P_max, max(diff(T.tags)) * 1e3);
+            status = 'pass';
+            msg = sprintf('%.2f Hz achieved, %.2f Hz requested (maximum %.1f Hz, %i chunks)', fps, P_fps, P_max, base('P.num_chunks'));
     end
 end
 

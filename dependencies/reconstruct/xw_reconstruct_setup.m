@@ -10,7 +10,9 @@ function R = xw_reconstruct_setup(P, Receive, Trans, TW, beamformer)
     %   beamformer            : 'auto' (default: as the live view), 'gpu' or 'cpu'
     %
     %   R has fields P (with x_axis, z_axis), modes, LUT, BFC, beamform (function
-    %   handle) and beamformer (name).
+    %   handle), beamformer (name), layout (order of the acquisitions in the
+    %   receive buffer, see xw_reconstruct_frame) and chunks (rays that can be
+    %   reconstructed separately, see xw_reconstruct_chunk).
     if nargin < 5 || isempty(beamformer)
         beamformer = 'auto';
     end
@@ -66,6 +68,12 @@ function R = xw_reconstruct_setup(P, Receive, Trans, TW, beamformer)
     BFC.BFMode = 'XW';
     R.BFC = BFC;
 
+    % order of the acquisitions in the receive buffer: 'ray-major' (all pulses
+    % of a ray together, so groups of rays can be transferred and
+    % reconstructed while the rest is acquired) or 'pulse-major' (older data)
+    R.layout = 'pulse-major';
+    if isfield(P, 'rf_layout'), R.layout = P.rf_layout; end
+
     % beamformer: 'auto' uses the CPU if P.use_cpu_beamformer, else a compiled
     % MLBFXWave if available, else the GPU
     if strcmp(beamformer, 'auto')
@@ -96,4 +104,12 @@ function R = xw_reconstruct_setup(P, Receive, Trans, TW, beamformer)
             error('xw_beamform:beamformer', 'Unknown beamformer ''%s'': use ''auto'', ''gpu'' or ''cpu''', beamformer);
     end
     R.beamformer = beamformer;
+
+    % groups of rays for xw_reconstruct_chunk
+    R = xw_reconstruct_chunks(R, xw_get_field(P, 'num_chunks', 1));
+end
+
+function v = xw_get_field(s, name, default)
+    v = default;
+    if isfield(s, name) && ~isempty(s.(name)), v = s.(name); end
 end

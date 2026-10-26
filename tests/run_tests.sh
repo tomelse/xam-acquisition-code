@@ -9,6 +9,7 @@
 #                      water or on a phantom.
 #   --cpu-beamformer   use the CPU beamformer (automatic if there is no NVIDIA GPU)
 #   --unit-only        only the unit tests (no VSX, no display needed)
+#   --fps N            frame rate [Hz] instead of P.fps (for --hardware, e.g. close to P.max_framerate)
 #   --keep-data        keep the data written by the tests (logs are always kept)
 #   -h, --help         show this help
 #
@@ -17,7 +18,7 @@
 # test is stopped (and fails) after XAM_TEST_TIMEOUT seconds (default 1200).
 set -uo pipefail
 
-usage() { sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 HARDWARE=0; UNIT_ONLY=0; KEEP_DATA=0
 while [[ $# -gt 0 ]]; do
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
         --hardware)       HARDWARE=1 ;;
         --cpu-beamformer) export XAM_CPU_BEAMFORMER=1 ;;
         --unit-only)      UNIT_ONLY=1 ;;
+        --fps)            [[ $# -ge 2 ]] || { echo '--fps needs a value' >&2; exit 2; }; export XAM_FPS="$2"; shift ;;
         --keep-data)      KEEP_DATA=1 ;;
         -h|--help)        usage; exit 0 ;;
         *)                echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;

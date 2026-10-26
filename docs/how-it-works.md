@@ -55,9 +55,11 @@ Event 2   display initial image                       → return to MATLAB
 Event 3   save acquisition parameters                 → return to MATLAB
 Event 4   stop hardware (wait for Start Seq.)
 Event 5…  for each of the 4 RF frames:
-            for each ray (and angle): transmit X, L, R, receive
-            transfer frame to host, wait for transfer
-            beamform (+ record), mark transfer processed
+            for each chunk of rays (P.num_chunks = 8):
+              for each ray (and angle): transmit X, L, R, receive
+              transfer the chunk to host, wait for transfer
+              beamform the chunk, mark transfer processed
+            (the last chunk also records, applies persistence)
             display                                    → return to MATLAB
           jump back to Event 5
 ```
@@ -67,6 +69,19 @@ transferring a new frame until the software has started processing the
 previous one. Frames are therefore never overwritten before they are
 processed: if processing or saving is slow, the frame rate drops instead of
 frames being skipped.
+
+### Chunks
+
+The frame is transferred and beamformed in `P.num_chunks` groups of
+consecutive rays (sub-frame DMA). While chunk *k* is beamformed on the host,
+the hardware acquires the rays of chunk *k + 1*, so only the last chunk is
+left to do when the frame has been acquired. This shortens the delay between
+acquisition and image, and lets the frame rate approach `P.max_framerate`
+when beamforming a whole frame would take longer than the idle time between
+frames. The images are identical to those of a whole-frame reconstruction
+(`num_chunks = 1`). Each chunk has its own process function
+(`xw_beamform_chunkNN`, which calls `xw_beamform_run(RFData, k)`). Chunks need
+`P.num_accumulations = 1`; otherwise `num_chunks` is set to 1.
 
 ## RF data layout
 
@@ -81,17 +96,23 @@ rows = 3 pulses × num_rays × num_angles × Nz_RF
 are ordered as:
 
 ```text
-[ X block | L block | R block ]
-each block: acquisition 1, 2, … in order angle (fastest), then ray
+[ ray 1 | ray 2 | … ]
+each ray: [ X | L | R ], each with the angles in order
 each acquisition: Nz_RF samples (Receive.startSample … endSample)
 ```
 
-So for pulse `p` (0 = X, 1 = L, 2 = R), ray `r` and angle `a` (1-based), the
+So for ray `r`, pulse `p` (0 = X, 1 = L, 2 = R) and angle `a` (1-based), the
 samples are rows
 
 ```text
-p × num_rays × num_angles × Nz_RF + ((r − 1) × num_angles + a − 1) × Nz_RF + (1 : Nz_RF)
+(((r − 1) × 3 + p) × num_angles + a − 1) × Nz_RF + (1 : Nz_RF)
 ```
+
+All pulses of a ray are together so that groups of rays can be transferred
+and beamformed separately (see Chunks). `P.rf_layout = 'ray-major'` marks this
+order. Data recorded with earlier versions has no `rf_layout` and is
+'pulse-major' (all rays of X, then all rays of L, then of R); the
+reconstruction functions handle both.
 
 Sampling: `NS200BW`, four samples per wavelength at the demodulation frequency
 (62.5 MHz at 15.625 MHz for the L22-14vX). The first two samples of channel 1
@@ -99,7 +120,7 @@ of each frame hold the hardware time tag (see `TimeTag2Sec`).
 
 ## Reconstruction
 
-`xw_beamform_run` is called once per frame:
+`xw_beamform_run` is called once per frame (once per chunk, with `P.num_chunks > 1`):
 
 1. Split the frame into the X, L and R blocks and compute `X − L − R` in RF.
 2. On the first call, compute the delay lookup tables (`xw_beamform_compute_LUT`):
