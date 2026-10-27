@@ -44,6 +44,7 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `xw_burst_start` | **Burst**: checks that a burst can start, asks for confirmation, and restarts the sequence at the burst events (`EN.Burst`). |
 | `xw_burst_plan` | Voltage profile (imaging / burst) of every frame of a burst, and where the sequence switches it. |
 | `xw_setup_burst` | Focused transmits (3 pulses per ray), receive structures and Verasonics reconstruction (`PData`, `Recon`, `ReconInfo`) of the burst. |
+| `xw_burst_difference` | Burst analysis: frame 11 (first at the burst voltage) minus the mean of the subsequent frames at that voltage (shown by `xw_burst_finish`). |
 | `xw_burst_preview`, `xw_burst_save_image`, `xw_burst_finish` | Process functions of the burst events: preview of the latest frame, keep each reconstructed image, and save the burst and return to live imaging. |
 | `xw_burst_update_button` | Enables or disables **Burst** (not during a recording, sweep, burst or freeze). |
 | `xw_set_start_event` | Restarts the sequence at a given event (`set&Run`), used by **Start Seq.** and the burst. |

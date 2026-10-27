@@ -65,6 +65,17 @@ Each burst is saved in its own folder `P.record_path/<date>_<time>_burst/`:
 
 The raw RF is not saved. The images are not log compressed.
 
+## Analysis figure
+
+When the burst has finished, a figure shows the burst analysis (also saved as
+`burst_analysis.png` / `.fig`, with the difference image in `burst.mat` as
+`analysis`): the first frame at the burst voltage (frame `pre + 1` = 11, gas
+vesicles intact), the mean of the subsequent frames at the same voltage
+(frames 12 to 56), and frame 11 minus that mean, so that what the burst removed,
+the gas vesicles, remains. The panels are in dB relative to the maximum of
+frame 11 (dynamic range from **DR B-Mode**); negative differences are clipped
+at zero in the display.
+
 ## Preview and frame rate
 
 `Resource.Parameters.waitForProcessing = 1`, which the live acquisition needs,

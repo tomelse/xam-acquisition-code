@@ -51,6 +51,8 @@ function save_burst(B, status)
     R.num_post_frames = P.burst_post_frames;
     R.t_start = B.t_start;
     R.t_end = datetime('now');
+    D = xw_burst_difference(R.images, P.burst_pre_frames, P.burst_collapse_frames);
+    R.analysis = D; % first frame at the burst voltage minus the mean of the next ones, see plot_analysis
     save(fullfile(B.folder, 'burst.mat'), '-struct', 'R', '-v7.3', '-nocompression');
     fprintf('Burst %s: %i frames saved in %s\n', status, n, B.folder);
 
@@ -71,4 +73,41 @@ function save_burst(B, status)
     grid(ax, 'on');
     exportgraphics(f, fullfile(B.folder, 'burst.png'), 'Resolution', 150);
     close(f);
+
+    plot_analysis(B, R, D);
+end
+
+function plot_analysis(B, R, D)
+    % Figure of the burst analysis: the first frame at the burst voltage, the mean of the
+    % subsequent frames at the same voltage and their difference. Shown, and saved as burst_analysis.png/.fig.
+    if isempty(D.difference)
+        fprintf('Burst analysis skipped: frame %i and the frames after it at the burst voltage are not available\n', D.frame);
+        return
+    end
+    UISTATES = evalin_if_exist('base', 'UISTATES', struct('dr_bmode', 40));
+    DR = UISTATES.dr_bmode;
+    ref_str = sprintf('frames %i-%i', D.reference(1), D.reference(end));
+    peak = max(D.image(:));
+    to_db = @(im) 20 * log10(max(im, eps(peak)) / peak); % relative to the maximum of the frame
+
+    f = figure('Name', 'xAM burst analysis', 'NumberTitle', 'off', 'Color', 'w', 'Position', [60 200 1400 520]);
+    tl = tiledlayout(f, 1, 3, 'TileSpacing', 'compact');
+    panels = {D.image, D.reference_image, max(D.difference, 0)};
+    titles = {sprintf('Frame %i (%.1f V)', D.frame, R.voltage(D.frame)), ...
+        sprintf('Mean of %s (%.1f V)', ref_str, mean(R.voltage(D.reference))), ...
+        sprintf('Frame %i minus mean of %s', D.frame, ref_str)};
+    for k = 1:3
+        ax = nexttile(tl);
+        imagesc(ax, R.x_axis, R.z_axis, to_db(panels{k}));
+        caxis(ax, [-DR 0]);
+        colormap(ax, 'hot');
+        colorbar(ax);
+        daspect(ax, [1 1 1]);
+        xlabel(ax, 'Lateral position [mm]');
+        ylabel(ax, 'Depth [mm]');
+        title(ax, titles{k});
+    end
+    title(tl, sprintf('Burst analysis (%s). dB relative to the maximum of frame %i; difference clipped at 0', R.status, D.frame), 'Interpreter', 'none');
+    exportgraphics(f, fullfile(B.folder, 'burst_analysis.png'), 'Resolution', 150);
+    savefig(f, fullfile(B.folder, 'burst_analysis.fig'));
 end

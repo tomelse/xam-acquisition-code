@@ -58,7 +58,7 @@ each result:
 | `save_mode` | The **Save mode** switch sets images / RF |
 | `record_images`, `record_rf` | **Record** saves 3 frames of each kind; RF frames load with `xw_load_rf_recording` |
 | `record_stop_early` | Pressing **Record** again stops a 20-frame recording |
-| `burst` | **Burst** is disabled during a recording (checked in `record_stop_early`) and during the burst, and enabled afterwards. A short burst (3 + 4 + 2 frames, `XAM_BURST_FRAMES`) is saved with the right frame count and TPC profiles, the sequence returns to live imaging. On the hardware the burst voltage is 1.6 V, below the imaging voltage: the image level must scale with the voltage, which checks that the profile is switched |
+| `burst` | **Burst** is disabled during a recording (checked in `record_stop_early`) and during the burst, and enabled afterwards. A short burst (3 + 4 + 2 frames, `XAM_BURST_FRAMES`) is saved with the right frame count and TPC profiles, the burst analysis figure is made, the sequence returns to live imaging. On the hardware the burst voltage is 1.6 V, below the imaging voltage: the image level must scale with the voltage, which checks that the profile is switched |
 | `freeze` | No frames while frozen; acquisition resumes after unfreezing |
 | `save_data_images`, `save_data_rf` | **Save Data** writes a snapshot with `BFData` / `RcvData` |
 | `offline_reconstruction` | Offline reconstruction (whole frame) of the RF snapshot reproduces the live image, which is assembled from chunks, exactly, and `examples/reconstruct_rf.m` reconstructs the RF recording |

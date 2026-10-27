@@ -182,6 +182,8 @@ function [T, status, msg] = step_burst(T)
             check(isequal(B.tpc_profile, [ones(1, base('P.burst_pre_frames')), 2 * ones(1, base('P.burst_collapse_frames')), ones(1, base('P.burst_post_frames'))]), ...
                 'TPC profiles of the frames: %s', mat2str(B.tpc_profile));
             check(isfile(fullfile(T.folder, 'burst.png')) && isfile(fullfile(T.folder, 'acq_parameters.mat')), 'burst.png or acq_parameters.mat missing');
+            check(isfile(fullfile(T.folder, 'burst_analysis.png')) && ~isempty(findall(groot, 'Type', 'figure', 'Name', 'xAM burst analysis')), 'burst analysis figure not made');
+            check(isequal(size(B.analysis.difference), size(B.images, [1 2])) && B.analysis.frame == base('P.burst_pre_frames') + 1, 'burst analysis missing from burst.mat');
             status = 'pass'; msg = sprintf('%i frames saved (%i at %.1f V), live imaging resumed', n, base('P.burst_collapse_frames'), base('P.burst_voltage'));
             if T.hardware && abs(base('P.burst_voltage') - base('TPC(1).hv')) > 0.5
                 % the image amplitude is proportional to the transmit voltage: the voltage was switched
