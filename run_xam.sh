@@ -10,6 +10,7 @@
 #   --sweep-save images|rf  what the sweep saves per voltage (default images;
 #                        rf is ~190 MB per frame)
 #   --save images|rf     initial save mode for Save Data and Record (default images)
+#   --float16            acquire the RF data as half (16 bit float) instead of int16
 #   --sim                simulation mode (no hardware needed)
 #   --cpu-beamformer     slow MATLAB beamformer, no GPU needed
 #   -h, --help           show this help
@@ -19,7 +20,7 @@
 # The MATLAB command window stays in this terminal; quit MATLAB with `exit`.
 set -euo pipefail
 
-usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 need_value() { [[ $# -ge 2 && -n "$2" ]] || { echo "Option $1 needs a value" >&2; exit 1; }; }
 
 while [[ $# -gt 0 ]]; do
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
         --save)           need_value "$@"
                           [[ "$2" == images || "$2" == rf ]] || { echo "--save must be images or rf" >&2; exit 1; }
                           export XAM_SAVE_MODE="$2"; shift 2 ;;
+        --float16)        export XAM_RF_DATATYPE=half; shift ;;
         --sim)            export XAM_SIMULATE=1; shift ;;
         --cpu-beamformer) export XAM_CPU_BEAMFORMER=1; shift ;;
         -h|--help)        usage; exit 0 ;;
@@ -47,6 +49,7 @@ VANTAGE_ROOT="${VANTAGE_ROOT:-$HOME/Documents/Code/VantageNXT-2.3.2-p2}"
 [[ -f "$VANTAGE_ROOT/VSX.m" ]] || { echo "Vantage software not found: $VANTAGE_ROOT (set VANTAGE_ROOT=...)" >&2; exit 1; }
 
 [[ -n "${XAM_SWEEP_VOLTAGES:-}" ]] && echo "Voltage sweep: ${XAM_SWEEP_VOLTAGES} V, ${XAM_SWEEP_FRAMES:-5} frames per voltage, 2 passes, saving ${XAM_SWEEP_SAVE:-images}. Press 'Voltage sweep' in VSX to start."
+[[ "${XAM_RF_DATATYPE:-}" == half ]] && echo "RF data acquired as half (float16)."
 [[ "${XAM_SIMULATE:-}" == 1 ]] && echo "Simulation mode."
 
 # keep MATLAB's GPU libraries in the CUDA cache once they are compiled for a GPU
