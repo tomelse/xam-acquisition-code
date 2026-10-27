@@ -151,10 +151,33 @@ channel_1 = frame[0]    # (rows,)
 
 Use `dtype=">i2"` if `byte_order` is `ieee-be`.
 
+### Half RF data
+
+With `P.rf_datatype = 'half'` the RF data is 16 bit floating point. MATLAB
+receives it as the bit patterns in an `int16` array, so `RcvData`, the `.bin`
+files and `xw_load_rf_recording` hold these bit patterns, not sample values
+(`recording_info.mat` has `rf_datatype`, and `Receive(1).datatype` is saved
+with the data). Convert to single with `xw_half2single`, which uses
+`convertHalfRcvData` of the Vantage software if it is on the path and a MATLAB
+implementation otherwise:
+
+```matlab
+X = 256 * xw_half2single(RF(:, :, k));   % single, [rows, channels], same scale as int16
+% the first two samples of every acquisition hold the time tag (see below): set them to 0
+```
+
+`xw_reconstruct_frame` and `examples/reconstruct_rf.m` do this (including the
+time tag samples) for you. In Python, read the file as `dtype="<f2"` instead of
+`"<i2"`. The system divides the 22 bit filter output by 256 before storing it as half
+(`Receive.datatype` in the Sequence Programming Manual, to allow accumulating up
+to 512 acquisitions without overflow), so multiply the converted values by 256
+for the scale of int16 data. `xw_reconstruct_frame` does this.
+
 ### Time tags
 
 The hardware writes a time tag into the first two samples of channel 1 of each
-frame. It is converted to seconds with `TimeTag2Sec`:
+acquisition (the first one is used for the frame, and for half data these two
+samples are not half values). It is converted to seconds with `TimeTag2Sec`:
 
 ```matlab
 t = TimeTag2Sec(RF(1:2, 1, k));   % frame k, in seconds

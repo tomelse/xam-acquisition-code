@@ -23,6 +23,7 @@ the tests is deleted afterwards unless `--keep-data` is given.
 | `--hardware` | Run the integration test on the hardware instead of in simulation. The transducer transmits at up to 2.5 V, so it must be in water or on a phantom. |
 | `--cpu-beamformer` | Use the MATLAB beamformer. Chosen automatically if there is no NVIDIA GPU. |
 | `--unit-only` | Skip the integration test. |
+| `--half` | Acquire the RF data as half (16 bit float) instead of int16 (`P.rf_datatype`). |
 | `--fps N` | Frame rate [Hz] instead of `P.fps`. For `--hardware`, to test close to `P.max_framerate`. |
 | `--keep-data` | Keep the recordings, snapshots and sweep written by the test. |
 
@@ -39,7 +40,7 @@ test is stopped and fails after `XAM_TEST_TIMEOUT` seconds (default 1200).
 | `test_rf_recording` | Background RF recording round trip (bit-exact, 4th frame not recorded, subsets); a failed write stops the recording and is listed in `failed_frames` |
 | `test_beamform_cpu` | `xw_beamform_cpu` focuses a synthetic echo at the right depth and ray; multiple frames are handled |
 | `test_chunk_timing` | `xw_chunk_timing` (used by the hardware test) finds the spacing of acquisitions and the pauses between chunks in synthetic time tags |
-| `test_reconstruct_chunks` | Reconstructing in chunks gives the same image as the whole frame, and the ray-major and pulse-major layouts give the same image |
+| `test_reconstruct_chunks` | Reconstructing in chunks gives the same image as the whole frame, the ray-major and pulse-major layouts give the same image, half data gives the same image as the equivalent int16 data (the time tag samples are ignored), and `xw_half2single` decodes half values (and agrees with `convertHalfRcvData` if the Vantage software is on the path) |
 | `test_beamform_gpu` | `xw_beamform_gpu` matches `xw_beamform_cpu` (2 angles, 2 frames, masked elements) and picks up changed LUTs. Skipped without a usable GPU |
 
 ## Integration test
@@ -96,7 +97,31 @@ tests/run_tests.sh --hardware --fps 30    # also close to P.max_framerate (36.8 
 | Does the hardware keep to `ttna` when it transfers chunks, and how long is the pause at each chunk boundary? | `chunk_timing` | `within a chunk … apart` equals `ttna`; the extra pause per boundary is small compared with the time to acquire a chunk. The pause is caused by `waitForProcessing = 1` |
 | Is the requested frame rate reached, also close to the maximum? | `frame_rate` (use `--fps`) | Achieved rate within 5% of the requested one. If it is lower, compare with `num_chunks = 1` (edit `P.num_chunks`) to see whether chunks help |
 | Does the DMA keep up, without receive buffer overflows or timeouts? | any step | No MATLAB errors or dialogs (also checked by the test) |
+| Does half data have the same scale as int16 after multiplying by 256 (`xw_reconstruct_rays`)? The manual says the system divides the 22 bit filter output by 256 for half; it does not say how int16 relates to it | not automatic: two runs, see below | Peak PW amplitude of the same target within a few percent between the formats. If the ratio is not 1, the factor 256 needs changing |
+| Does half data work with `num_accumulations > 1` (up to 512 accumulations without overflow), and is the xAM noise floor lower than with int16? | not automatic | Run with `P.rf_datatype = 'half'` and `P.num_accumulations` > 1; no clipping, images as expected |
 | Does every chunk call copy the whole receive buffer (~190 MB), which would cancel the gain? | not automatic | Time `xw_beamform_run` per chunk with `tic`/`toc` or the MATLAB profiler; with 8 chunks the time per chunk should be about 1/8 of the whole-frame time |
+
+To compare the scale of half and int16 data, acquire the same static target
+with both and compare the snapshots (`--keep-data` keeps them in
+`tests/output/<date_time>/data/snapshots/`):
+
+```bash
+tests/run_tests.sh --hardware --keep-data           # int16
+tests/run_tests.sh --hardware --keep-data --half    # half
+```
+
+```matlab
+addpath(genpath('dependencies'))
+for f = {'int16_run/.../snapshot_rf.mat', 'half_run/.../snapshot_rf.mat'}   % the two snapshots
+    S = load(f{1}, 'P', 'Receive', 'Trans', 'TW', 'RcvData');
+    R = xw_reconstruct_setup(S.P, S.Receive, S.Trans, S.TW);
+    B = xw_reconstruct_frame(R, S.RcvData{1}(:, :, 1));
+    fprintf('%s: peak |PW| %.3g, median |xAM| %.3g\n', S.Receive(1).datatype, max(abs(B.PW(:))), median(abs(B.xAM(:))));
+end
+```
+
+In simulation the peaks agree within the variation between frames (ratio 0.99 to
+1.06), and the median xAM level of half data is much lower.
 
 To look at the acquisition timing of any RF snapshot yourself:
 

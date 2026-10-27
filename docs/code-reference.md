@@ -56,6 +56,7 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `xw_beamform_run` | External process function called per frame: reconstructs the frame (`xw_reconstruct_frame`), records it, advances a sweep, applies persistence and stores `BFData`. |
 | `xw_reconstruct_setup` | Image grid, delay lookup tables and beamformer choice for a sequence. Shared by the live view and offline reconstruction. |
 | `xw_reconstruct_chunk`, `xw_reconstruct_chunks`, `xw_chunk_rays` | Reconstruct a group of rays (chunk) as soon as it has been transferred; build the chunks with their delay tables; split the rays into chunks. |
+| `xw_half2single` (in `utilities`) | Converts half RF data (stored as int16 bit patterns) to single. |
 | `xw_reconstruct_rays` | Splits the X/L/R pulses of the given rays (for either receive buffer layout) and beamforms them; used by the two functions above and below. |
 | `xw_reconstruct_frame` | Reconstructs one frame of RF data: splits X/L/R, forms `X − L − R`, beamforms `PW` (and `xBmode`) and `xAM`. Shared by the live view and offline reconstruction. |
 | `xw_beamform_gpu` | GPU beamformer (`gpuArray`), the default. Same algorithm as `xw_beamform_cpu`; keeps the LUTs on the GPU between calls. |

@@ -5,7 +5,8 @@ function [RF, info] = xw_load_rf_recording(folder, frames)
     %   folder  : recording folder (contains frame_00001.bin, ... and
     %             recording_info.mat)
     %   frames  : frame indices to load (default: all complete frames)
-    %   RF      : int16 [rows, channels, numel(frames)], same layout as RcvData
+    %   RF      : int16 [rows, channels, numel(frames)], same layout as RcvData.
+    %             For half recordings (info.rf_datatype) these are the bit patterns, see xw_half2single
     %   info    : contents of recording_info.mat (time tags, frame size, ...)
     %
     %   The sequence parameters (P, Receive, TX, ...) are in acq_parameters.mat

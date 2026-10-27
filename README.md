@@ -99,6 +99,7 @@ on the Vantage). See the [testing documentation](docs/testing.md).
 
 | Name                       | Description                                                                            |
 | -------------------------- | -------------------------------------------------------------------------------------- |
+| `rf_datatype`              | RF data format: `'int16'` (default) or `'half'` (16 bit float: more dynamic range, accumulation up to 512 without overflow) |
 | `num_accumulations`        | Number of RF accumulations. Increases SNR but lowers FPS and risks clipping of signals |
 | `use_adaptive_xwave_angle` | If true, xWave angles are adapted based on imaging depth                               |
 | `use_half_pitch_scanning`  | Enables half-pitch scanning for finer sampling                                         |

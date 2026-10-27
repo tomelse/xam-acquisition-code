@@ -86,6 +86,7 @@ frames. The images are identical to those of a whole-frame reconstruction
 ## RF data layout
 
 Each frame in the receive buffer (`RcvData{1}(:, :, frame)`) is an int16 array
+(for `P.rf_datatype = 'half'`: the bit patterns of half data, see [Saving data](saving-data.md#half-rf-data))
 of `rows × 128` channels, with
 
 ```text

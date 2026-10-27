@@ -47,6 +47,7 @@ normally set with `run_xam.sh --sweep` and `--sweep-frames`.
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `P.num_accumulations` | `1` | Number of RF acquisitions summed on the hardware per transmit. Increases SNR but lowers the maximum frame rate, and can clip the signal. |
+| `P.rf_datatype` | `'int16'` | Format of the acquired RF data: `'int16'`, or `'half'` (16 bit floating point, `Receive.datatype`). Half has more dynamic range for weak signals and allows accumulating up to 512 acquisitions without overflow, but less precision for large echoes. The reconstruction multiplies half data by 256 (the system divides the 22 bit filter output by 256 before storing it as half), so images have the same scale as with int16. The data is still stored as `int16` bit patterns; see [Saving data](saving-data.md#half-rf-data). |
 | `P.num_chunks` | `8` | The frame is transferred and beamformed in this many groups of rays while the next rays are acquired (1 = whole frame at the end). Images are identical. Needs `num_accumulations = 1`. See [How it works](how-it-works.md). |
 | `P.use_adaptive_xwave_angle` | `true` | Lowers the xWave angle for rays near the array edges (smaller apertures), so the plane waves still cross down to the maximum depth. |
 | `P.use_half_pitch_scanning` | `true` | Places rays every half element instead of every element: twice the lateral sampling, half the maximum frame rate. |
