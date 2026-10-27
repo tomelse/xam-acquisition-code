@@ -23,6 +23,8 @@ controls.
 | **Save Data** | `UserC1` | Opens the save menu for a snapshot of the frozen sequence. The menu is preset for the selected save mode. |
 | **Rec. frames** | `UserC3` | Number of frames saved per recording (1-500). |
 | **Voltage sweep** | `UserB2` | Only with `run_xam.sh --sweep`. Starts a voltage sweep; press again to stop it. See [Voltage sweep](voltage-sweep.md). |
+| **Burst** | `UserC4` | Acquires one burst of focused-transmit frames at a high frame rate: frames at the imaging voltage, frames at the burst voltage (**High Voltage P2**) and back, reconstructed and saved at the end in its own folder. Greyed out during a recording, sweep or burst. See [Burst](burst.md). |
+| **High Voltage P2** | VSX | Burst voltage (TPC profile 2). |
 | **Record** | `UserC2` | While running, saves the next **Rec. frames** frames. Press again to stop early. The image window title shows `REC k/N` during a recording. |
 
 ## Image window

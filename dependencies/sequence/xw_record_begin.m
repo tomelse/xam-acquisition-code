@@ -52,6 +52,7 @@ function ok = xw_record_begin(mode, num_frames, folder)
     end
     xw_record_save_info(XWRecord);
     assignin('base', 'XWRecord', XWRecord);
+    xw_burst_update_button();
 
     fprintf('Recording %i frames (%s, ~%.1f GB) to %s\n', XWRecord.num_frames, XWRecord.mode, bytes_needed / 1e9, folder);
     ok = true;

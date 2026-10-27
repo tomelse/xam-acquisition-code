@@ -41,6 +41,7 @@ test is stopped and fails after `XAM_TEST_TIMEOUT` seconds (default 1200).
 | `test_beamform_cpu` | `xw_beamform_cpu` focuses a synthetic echo at the right depth and ray; multiple frames are handled |
 | `test_chunk_timing` | `xw_chunk_timing` (used by the hardware test) finds the spacing of acquisitions and the pauses between chunks in synthetic time tags |
 | `test_reconstruct_chunks` | Reconstructing in chunks gives the same image as the whole frame, the ray-major and pulse-major layouts give the same image, half data gives the same image as the equivalent int16 data (the time tag samples are ignored), and `xw_half2single` decodes half values (and agrees with `convertHalfRcvData` if the Vantage software is on the path) |
+| `test_burst_plan` | `xw_burst_plan` gives the voltage profile of each burst frame and where the sequence switches it (also for bursts that start at the burst voltage); invalid frame counts are rejected |
 | `test_beamform_gpu` | `xw_beamform_gpu` matches `xw_beamform_cpu` (2 angles, 2 frames, masked elements) and picks up changed LUTs. Skipped without a usable GPU |
 
 ## Integration test
@@ -57,6 +58,7 @@ each result:
 | `save_mode` | The **Save mode** switch sets images / RF |
 | `record_images`, `record_rf` | **Record** saves 3 frames of each kind; RF frames load with `xw_load_rf_recording` |
 | `record_stop_early` | Pressing **Record** again stops a 20-frame recording |
+| `burst` | **Burst** is disabled during a recording (checked in `record_stop_early`) and during the burst, and enabled afterwards. A short burst (3 + 4 + 2 frames, `XAM_BURST_FRAMES`) is saved with the right frame count and TPC profiles, the sequence returns to live imaging. On the hardware the burst voltage is 1.6 V, below the imaging voltage: the image level must scale with the voltage, which checks that the profile is switched |
 | `freeze` | No frames while frozen; acquisition resumes after unfreezing |
 | `save_data_images`, `save_data_rf` | **Save Data** writes a snapshot with `BFData` / `RcvData` |
 | `offline_reconstruction` | Offline reconstruction (whole frame) of the RF snapshot reproduces the live image, which is assembled from chunks, exactly, and `examples/reconstruct_rf.m` reconstructs the RF recording |
@@ -99,6 +101,7 @@ tests/run_tests.sh --hardware --fps 30    # also close to P.max_framerate (36.8 
 | Does the DMA keep up, without receive buffer overflows or timeouts? | any step | No MATLAB errors or dialogs (also checked by the test) |
 | Does half data have the same scale as int16 after multiplying by 256 (`xw_reconstruct_rays`)? The manual says the system divides the 22 bit filter output by 256 for half; it does not say how int16 relates to it | not automatic: two runs, see below | Peak PW amplitude of the same target within a few percent between the formats. If the ratio is not 1, the factor 256 needs changing |
 | Does half data work with `num_accumulations > 1` (up to 512 accumulations without overflow), and is the xAM noise floor lower than with int16? | not automatic | Run with `P.rf_datatype = 'half'` and `P.num_accumulations` > 1; no clipping, images as expected |
+| Does the voltage switch between frames of the burst (`setTPCProfile` after a transmit without active elements, `P.burst_settle_us`)? Does the hardware complete the long burst block (56 frames, ~15000 events) and return to live imaging? | `burst` (short burst at 1.6 V); then a full burst at the real voltage | B-mode level scales with voltage in `burst.png` / `burst.mat`; no `timeToNextAcq` warnings in the MATLAB output (if there are, increase `P.burst_settle_us`); the time tags in `burst.mat` give the frame rate of the burst |
 | Does every chunk call copy the whole receive buffer (~190 MB), which would cancel the gain? | not automatic | Time `xw_beamform_run` per chunk with `tic`/`toc` or the MATLAB profiler; with 8 chunks the time per chunk should be about 1/8 of the whole-frame time |
 
 To compare the scale of half and int16 data, acquire the same static target

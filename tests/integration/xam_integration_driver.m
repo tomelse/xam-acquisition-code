@@ -19,7 +19,7 @@ function out = xam_integration_driver(cmd)
     end
     if ~isfield(T, 'steps') % first call
         T.steps = {'wait_for_gui', 'start_sequence', 'persistence', 'dynamic_range', 'save_mode', ...
-            'record_images', 'record_rf', 'record_stop_early', 'freeze', 'save_data_images', ...
+            'record_images', 'record_rf', 'record_stop_early', 'burst', 'freeze', 'save_data_images', ...
             'save_data_rf', 'offline_reconstruction'};
         if T.sweep, T.steps{end + 1} = 'voltage_sweep'; end
         if T.hardware, T.steps(end + 1:end + 3) = {'time_tags', 'chunk_timing', 'frame_rate'}; end
@@ -142,12 +142,55 @@ function [T, status, msg] = step_record_stop_early(T)
             press('UserC2PushButton'); T.phase = 1;
         case 1
             R = base('XWRecord');
-            if R.frame_count >= 2, press('UserC2PushButton'); T.folder = R.folder; T.phase = 2; end
+            if R.frame_count >= 2
+                check(strcmp(ctrl('UserC4PushButton').Enable, 'off'), 'Burst button is enabled during a recording');
+                press('UserC2PushButton'); T.folder = R.folder; T.phase = 2;
+            end
         case 2
             if base('XWRecord.active') || ~finished(T.folder), return; end
             info = load(fullfile(T.folder, 'recording_info.mat'));
             check(info.num_frames >= 2 && info.num_frames < 20, 'expected 2-19 frames, got %i', info.num_frames);
             status = 'pass'; msg = sprintf('stopped after %i of 20 frames', info.num_frames);
+    end
+end
+
+function [T, status, msg] = step_burst(T)
+    % one burst: the Burst button is disabled while it runs, the frames and the
+    % voltages are saved, and live imaging continues afterwards
+    [T, status, msg] = wait_phase(T);
+    switch T.phase
+        case 0
+            if base('XWRecord.active') || ~strcmp(ctrl('UserC4PushButton').Enable, 'on'), msg = 'waiting for the Burst button'; return; end
+            press('UserC4PushButton');
+            check(base('XWBurst.active'), 'XWBurst.active is not set after pressing Burst');
+            check(strcmp(ctrl('UserC4PushButton').Enable, 'off'), 'Burst button not disabled during the burst');
+            T.folder = base('XWBurst.folder'); T.phase = 1;
+        case 1
+            msg = sprintf('burst running, %i of %i images saved', base('XWBurst.image_count'), base('XWBurst.num_frames'));
+            check(strcmp(ctrl('UserC4PushButton').Enable, 'off') || ~base('XWBurst.active'), 'Burst button enabled during the burst');
+            if base('XWBurst.active'), return; end
+            T.f0 = T.frames; T.phase = 2;
+        case 2
+            if T.frames - T.f0 < 3, msg = 'waiting for live imaging to resume'; return; end
+            check(strcmp(ctrl('UserC4PushButton').Enable, 'on'), 'Burst button not enabled after the burst');
+            B = load(fullfile(T.folder, 'burst.mat'));
+            n = base('P.burst_pre_frames') + base('P.burst_collapse_frames') + base('P.burst_post_frames');
+            check(strcmp(B.status, 'complete'), 'burst status: %s', B.status);
+            check(size(B.images, 3) == n, 'expected %i burst frames, got %i', n, size(B.images, 3));
+            check(all(isfinite(B.images(:))) && any(B.images(:) > 0) && ~isequal(B.images(:, :, 1), B.images(:, :, 2)), 'burst images are empty or identical');
+            check(size(B.images, 2) == numel(B.x_axis) && size(B.images, 1) == numel(B.z_axis), 'image size does not match the axes');
+            check(isequal(B.tpc_profile, [ones(1, base('P.burst_pre_frames')), 2 * ones(1, base('P.burst_collapse_frames')), ones(1, base('P.burst_post_frames'))]), ...
+                'TPC profiles of the frames: %s', mat2str(B.tpc_profile));
+            check(isfile(fullfile(T.folder, 'burst.png')) && isfile(fullfile(T.folder, 'acq_parameters.mat')), 'burst.png or acq_parameters.mat missing');
+            status = 'pass'; msg = sprintf('%i frames saved (%i at %.1f V), live imaging resumed', n, base('P.burst_collapse_frames'), base('P.burst_voltage'));
+            if T.hardware && abs(base('P.burst_voltage') - base('TPC(1).hv')) > 0.5
+                % the image amplitude is proportional to the transmit voltage: the voltage was switched
+                m = squeeze(mean(B.images, [1 2]))';
+                ratio = mean(m(B.tpc_profile == 2)) / mean(m(B.tpc_profile == 1));
+                expected = base('P.burst_voltage') / base('TPC(1).hv');
+                check(abs(ratio / expected - 1) < 0.3, 'image level at the burst voltage is %.2f x the imaging level, expected about %.2f', ratio, expected);
+                msg = sprintf('%s; image level %.2f x at the burst voltage (expected %.2f)', msg, ratio, expected);
+            end
     end
 end
 

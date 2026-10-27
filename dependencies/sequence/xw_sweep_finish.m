@@ -4,6 +4,7 @@ function xw_sweep_finish(S, reason)
     % xAM signal against voltage for each pass.
     S.active = false;
     assignin('base', 'XWSweep', S);
+    xw_burst_update_button();
 
     XWRecord = evalin_if_exist('base', 'XWRecord', struct('active', false));
     if XWRecord.active

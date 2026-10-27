@@ -34,6 +34,7 @@
 %   P.save_path              : Default path for saving data
 %   P.record_path            : Path for recordings made with the 'Record' button
 %   P.record_num_frames      : Default number of frames per recording
+%   P.burst_*                : Settings of the 'Burst' button, see below and docs/burst.md
 %
 % Advanced options:
 %   P.num_accumulations      : Number of RF accumulations. Increases SNR but
@@ -127,6 +128,27 @@ P.sweep_settle_s = 1; % minimum settle time after a voltage increase [s]
 P.sweep_settle_s_down = 3; % minimum settle time after a voltage decrease [s]
 P.sweep_max_voltage = 25; % sweep refuses voltages above this [V] (L22-14vX limit is 30 V)
 
+% Burst ('Burst' button): frames at the imaging voltage, frames at the burst voltage, frames at the imaging voltage.
+% The burst voltage is TPC profile 2 (VSX slider 'High Voltage P2'), the imaging voltage profile 1 ('High Voltage P1').
+% The burst uses focused transmits (not xWaves) and its own, higher frame rate, as the BURST_L22_14v script.
+P.burst_voltage = 25; % [V] (L22-14vX limit is 30 V, see Trans.maxHighVoltage)
+P.burst_pre_frames = 10;
+P.burst_collapse_frames = 46;
+P.burst_post_frames = 0;
+P.burst_start_depth_mm = 2; % image depth of the burst [mm]
+P.burst_end_depth_mm = 14;
+P.burst_num_tx = 40; % elements in the transmit aperture. The rays are all positions of the aperture
+P.burst_focus_mm = 6; % transmit focus [mm]
+P.burst_tw_half_cycles = 7; % length of the transmit pulse in half cycles
+P.burst_frame_delay_factor = 10; % time between frames, in times the time between acquisitions
+P.burst_preview_every = 4; % preview every n-th frame of the burst while it runs, 0 = no preview
+P.burst_confirm = true; % ask for confirmation before a burst: it collapses gas vesicles irreversibly
+P.burst_settle_us = 8000; % time reserved for a change of the voltage [us] (0.8 to 8 ms, depending on the voltage step)
+% tests/run_tests.sh uses a short burst at a safe voltage and no confirmation
+if ~isempty(getenv('XAM_BURST_VOLTAGE')), P.burst_voltage = str2double(getenv('XAM_BURST_VOLTAGE')); end
+if ~isempty(getenv('XAM_BURST_FRAMES')), burst_frames = str2double(strsplit(getenv('XAM_BURST_FRAMES'), ',')); [P.burst_pre_frames, P.burst_collapse_frames, P.burst_post_frames] = deal(burst_frames(1), burst_frames(2), burst_frames(3)); end
+if strcmp(getenv('XAM_BURST_CONFIRM'), '0'), P.burst_confirm = false; end
+
 %% =============================================================================
 % INPUT VALIDATION
 % ==============================================================================
@@ -135,6 +157,10 @@ assert(P.aperture_size_min < P.aperture_size_max, 'Min aperture size must be sma
 assert(all(P.sweep_voltages <= P.sweep_max_voltage), 'Sweep voltages must not exceed P.sweep_max_voltage = %g V', P.sweep_max_voltage)
 assert(all(P.sweep_voltages >= 1.6), 'Sweep voltages must be at least 1.6 V (Vantage minimum)')
 assert(ismember(P.sweep_save_mode, {'images', 'rf'}), 'P.sweep_save_mode must be ''images'' or ''rf''')
+BP = xw_burst_plan(P.burst_pre_frames, P.burst_collapse_frames, P.burst_post_frames); % frames of a burst
+assert(P.burst_voltage >= 1.6, 'Burst voltage must be at least 1.6 V (Vantage minimum)')
+assert(P.burst_end_depth_mm > P.burst_start_depth_mm, 'Burst end depth must be larger than start depth')
+assert(P.burst_preview_every >= 0 && P.burst_preview_every == round(P.burst_preview_every), 'P.burst_preview_every must be a non-negative integer')
 assert(isfinite(P.sweep_frames) && P.sweep_frames >= 1 && P.sweep_frames == round(P.sweep_frames), 'Sweep frames per voltage must be a positive integer')
 
 %% =============================================================================
@@ -144,6 +170,7 @@ assert(isfinite(P.sweep_frames) && P.sweep_frames >= 1 && P.sweep_frames == roun
 % Define Trans structure array
 Trans.units = 'mm';
 Trans = computeTrans(Trans);
+assert(P.burst_voltage <= Trans.maxHighVoltage, 'Burst voltage %g V is above the limit of %s of %g V', P.burst_voltage, Trans.name, Trans.maxHighVoltage)
 
 %% =============================================================================
 % SYSTEM PARAMETERS
@@ -264,7 +291,14 @@ TX = repmat(struct('waveform', 1, ...
     'Delay', zeros(1, Trans.numelements)), ...
     1, P.num_pulses * P.num_angles * P.num_rays);
 
-TPC.hv = P.image_voltage;
+TPC(1).hv = P.image_voltage; % imaging voltage
+TPC(2).hv = P.burst_voltage; % burst voltage, used by the burst events
+
+% dummy transmit without active elements, to change the TPC profile between frames
+TX(end + 1) = TX(1);
+TX(end).Apod = zeros(1, Trans.numelements);
+TX(end).Delay = zeros(1, Trans.numelements);
+P.dummy_tx = numel(TX);
 
 % Specify Receive structure arrays.
 P.use_accumulation = P.num_accumulations > 1;
@@ -334,6 +368,33 @@ TGC(1).rangeMax = P.image_end_depth_mm * P.scale_mm2wvl; % in wavelengths
 TGC(1).Waveform = computeTGCWaveform(TGC(1));
 
 %% =============================================================================
+% BURST: FOCUSED TRANSMITS, RECEIVE BUFFER AND RECONSTRUCTION
+% ==============================================================================
+% The burst is acquired and reconstructed with the Verasonics reconstruction, in its own receive buffer
+% that holds all frames of the burst, see xw_setup_burst. Transmit waveform 2, TGC 2, receive buffer 2.
+SB = xw_setup_burst(P, Trans, BP.num_frames, numel(TX), numel(Receive));
+TX = [TX, SB.TX];
+Receive = [Receive, SB.Receive];
+TW(2) = SB.TW;
+TGC(2) = SB.TGC;
+PData = SB.PData;
+Recon = SB.Recon;
+ReconInfo = SB.ReconInfo;
+Resource.RcvBuffer(2).datatype = 'int16';
+Resource.RcvBuffer(2).rowsPerFrame = SB.rows_per_frame;
+Resource.RcvBuffer(2).colsPerFrame = Resource.Parameters.numRcvChannels;
+Resource.RcvBuffer(2).numFrames = BP.num_frames + mod(BP.num_frames, 2); % VSX needs 1 or an even number of frames
+Resource.InterBuffer(1).numFrames = 1;
+Resource.ImageBuffer(1).numFrames = BP.num_frames; % reconstructed frames of the burst
+Resource.ImageBuffer(2).numFrames = 1; % preview
+P.burst_num_rays = SB.num_rays;
+P.burst_x_axis = SB.x_axis; % image axes [mm]
+P.burst_z_axis = SB.z_axis;
+P.burst_ttna = 3 * P.burst_end_depth_mm / P.speed_of_sound * 2 * 1e3; % time between acquisitions [us]
+P.burst_ttna_frame = P.burst_frame_delay_factor * P.burst_ttna; % time after the last acquisition of a frame [us]
+P.burst_frame_period = (P.burst_ttna * 3 * SB.num_rays + P.burst_ttna_frame) * 1e-6; % nominal time between frames [s]
+
+%% =============================================================================
 % PROCESS FUNCTIONS
 % ==============================================================================
 
@@ -380,6 +441,35 @@ Process(np).Parameters = {'srcbuffer', 'none', ...
     'dstbuffer', 'none'};
 np = np + 1;
 
+% burst: preview of the latest frame, saving of the images of each frame, and the end of the burst
+PN.burst_preview = np;
+Process(np).classname = 'External';
+Process(np).method = 'xw_burst_preview';
+Process(np).Parameters = {'srcbuffer', 'image', ...
+    'srcbufnum', 2, ...
+    'srcframenum', -1, ...
+    'dstbuffer', 'none'};
+np = np + 1;
+
+PN.burst_save = zeros(1, BP.num_frames);
+for idx_frame = 1:BP.num_frames
+    PN.burst_save(idx_frame) = np;
+    Process(np).classname = 'External';
+    Process(np).method = 'xw_burst_save_image';
+    Process(np).Parameters = {'srcbuffer', 'image', ...
+        'srcbufnum', 1, ...
+        'srcframenum', idx_frame, ...
+        'dstbuffer', 'none'};
+    np = np + 1;
+end
+
+PN.burst_finish = np;
+Process(np).classname = 'External';
+Process(np).method = 'xw_burst_finish';
+Process(np).Parameters = {'srcbuffer', 'none', ...
+    'dstbuffer', 'none'};
+np = np + 1;
+
 PN.saveAcqPars = np;
 Process(np).classname = 'External'; % process structure for 1st Doppler ensemble
 Process(np).method = 'xw_sequence_save_acquisition_parameters';
@@ -414,6 +504,28 @@ SC.ttna_frame = 6;
 SeqControl(7).command = 'sync';
 SeqControl(7).argument = 1000 * 4;
 SC.sync = 7;
+
+SeqControl(8).command = 'timeToNextAcq';
+SeqControl(8).argument = P.burst_ttna; % between the acquisitions of a burst
+SC.ttna_burst = 8;
+SeqControl(9).command = 'timeToNextAcq';
+SeqControl(9).argument = P.burst_settle_us; % after a change of the voltage
+SC.tpc_settle = 9;
+SeqControl(10).command = 'setTPCProfile';
+SeqControl(10).argument = 1; % imaging voltage
+SeqControl(10).condition = 'next';
+SC.tpc_imaging = 10;
+SeqControl(11).command = 'setTPCProfile';
+SeqControl(11).argument = 2; % burst voltage
+SeqControl(11).condition = 'next';
+SC.tpc_burst = 11;
+SeqControl(12).command = 'jump';
+SeqControl(12).argument = []; % set later, to EN.StartEvent
+SC.jump_start = 12;
+SeqControl(13).command = 'timeToNextAcq';
+SeqControl(13).argument = P.burst_ttna_frame; % between the frames of a burst
+SC.ttna_burst_frame = 13;
+tpc_sc = [SC.tpc_imaging, SC.tpc_burst]; % setTPCProfile of TPC profile 1, 2
 
 nsc = length(SeqControl) + 1;
 
@@ -457,9 +569,18 @@ Event(n).process = 0;
 Event(n).seqControl = [SC.matlab, SC.stop];
 n = n + 1;
 
-% EN.startDop = n;
+% when the sequence is started, and after a burst: imaging voltage (TPC profile 1)
 EN.StartEvent = n;
-SeqControl(SC.jump).argument = EN.StartEvent; % set here
+Event(n).info = 'Set imaging voltage';
+Event(n).tx = P.dummy_tx;
+Event(n).rcv = 0;
+Event(n).recon = 0;
+Event(n).process = 0;
+Event(n).seqControl = [SC.tpc_settle, SC.tpc_imaging];
+n = n + 1;
+
+EN.Loop = n;
+SeqControl(SC.jump).argument = EN.Loop; % set here
 
 chunk_rays = xw_chunk_rays(P.num_rays, P.num_chunks);
 for idx_frame = 1:P.num_rf_frames
@@ -671,7 +792,109 @@ Event(n).tx = 0;
 Event(n).rcv = 0;
 Event(n).recon = 0;
 Event(n).process = 0;
-Event(n).seqControl = [SC.matlab, SC.jump]; % jump back to Event 1
+Event(n).seqControl = [SC.matlab, SC.jump]; % jump back to the start of the loop
+n = n + 1;
+
+% ------------------------------------------------------------------------------
+% Burst, started by the Burst button (xw_burst_start restarts the sequence at EN.Burst).
+%
+% All frames are acquired with focused transmits, one after the other at a high frame rate, each
+% transferred to the receive buffer 2 that holds all frames. The images are reconstructed (Verasonics
+% reconstruction) and saved all at the end of the burst, after the last acquisition.
+%
+% Resource.Parameters.waitForProcessing = 1 (needed for the acquisition loop above) makes the hardware
+% wait, before each transfer, until the software has asked for the latest frame (with a frame number -1).
+% During the burst this is done with a reconstruction of the latest frame after every frame: of one ray
+% (fast) or, for every P.burst_preview_every-th frame, of all rays, which is shown in the preview. The
+% preview takes some time, so the acquisition waits for it: set P.burst_preview_every = 0 for the fastest burst.
+% ------------------------------------------------------------------------------
+tth_sc = nsc + (0:BP.num_frames - 1); % SeqControl of the transfer of each frame
+nsc = nsc + BP.num_frames;
+
+% clear the 'transferred, not processed' flags of the transfers (left set by a previous burst)
+EN.Burst = n;
+for idx_frame = 1:BP.num_frames
+    Event(n).info = sprintf('Burst: clear transfer flag of frame %i', idx_frame);
+    Event(n).tx = 0;
+    Event(n).rcv = 0;
+    Event(n).recon = 0;
+    Event(n).process = 0;
+    Event(n).seqControl = nsc;
+    SeqControl(nsc).command = 'markTransferProcessed';
+    SeqControl(nsc).argument = tth_sc(idx_frame);
+    nsc = nsc + 1;
+    n = n + 1;
+end
+
+for idx_frame = 1:BP.num_frames
+    if BP.switch_before(idx_frame) > 0 % imaging voltage, burst voltage
+        Event(n).info = sprintf('Burst: set TPC profile %i', BP.switch_before(idx_frame));
+        Event(n).tx = P.dummy_tx;
+        Event(n).rcv = 0;
+        Event(n).recon = 0;
+        Event(n).process = 0;
+        Event(n).seqControl = [SC.tpc_settle, tpc_sc(BP.switch_before(idx_frame))];
+        n = n + 1;
+    end
+
+    for idx_ray = 1:SB.num_rays
+        for idx_pulse = 1:3 % full aperture, odd elements off, even elements off
+            Event(n).info = sprintf('Burst: acquire R%03i P%i F%03i', idx_ray, idx_pulse, idx_frame);
+            Event(n).tx = SB.tx_index(idx_pulse, idx_ray);
+            Event(n).rcv = SB.rcv_index(idx_pulse, idx_ray, idx_frame);
+            Event(n).recon = 0;
+            Event(n).process = 0;
+            Event(n).seqControl = SC.ttna_burst;
+            n = n + 1;
+        end
+    end
+    Event(n - 1).seqControl = [SC.ttna_burst_frame, tth_sc(idx_frame)];
+    SeqControl(tth_sc(idx_frame)).command = 'transferToHost'; % transfer the frame to the host buffer
+
+    % ask for the latest frame, see above
+    Event(n).tx = 0;
+    Event(n).rcv = 0;
+    Event(n).seqControl = 0;
+    if P.burst_preview_every > 0 && mod(idx_frame, P.burst_preview_every) == 0
+        Event(n).info = sprintf('Burst: preview after frame %i', idx_frame);
+        Event(n).recon = SB.recon_preview;
+        Event(n).process = PN.burst_preview;
+    else
+        Event(n).info = sprintf('Burst: request latest frame after frame %i', idx_frame);
+        Event(n).recon = SB.recon_request;
+        Event(n).process = 0;
+    end
+    n = n + 1;
+end
+
+% reconstruct and save all frames, one after the other. A reconstruction waits for the transfer of its frame
+for idx_frame = 1:BP.num_frames
+    Event(n).info = sprintf('Burst: reconstruct and save frame %i', idx_frame);
+    Event(n).tx = 0;
+    Event(n).rcv = 0;
+    Event(n).recon = SB.recon_final(idx_frame);
+    Event(n).process = PN.burst_save(idx_frame);
+    Event(n).seqControl = 0;
+    n = n + 1;
+end
+
+% end of the burst: save the data, and return to the acquisition loop (restarts at EN.StartEvent)
+Event(n).info = 'Burst: finish';
+Event(n).tx = 0;
+Event(n).rcv = 0;
+Event(n).recon = 0;
+Event(n).process = PN.burst_finish;
+Event(n).seqControl = 0;
+n = n + 1;
+
+% the events must not end here: the sequence would continue with event 1, which freezes it
+SeqControl(SC.jump_start).argument = EN.StartEvent;
+Event(n).info = 'Burst: return to Matlab, back to the acquisition loop';
+Event(n).tx = 0;
+Event(n).rcv = 0;
+Event(n).recon = 0;
+Event(n).process = 0;
+Event(n).seqControl = [SC.matlab, SC.jump_start];
 n = n + 1;
 
 %% =============================================================================
@@ -745,6 +968,12 @@ UI(n_ui).Control = {'UserC2', 'Style', 'VsPushButton', 'Label', 'Record'};
 UI(n_ui).Callback = {'xw_record_start()'};
 n_ui = n_ui + 1;
 XWRecord = struct('active', false); % recording state, see xw_record_start
+
+% one burst: frames at the burst voltage (collapse), saved to P.record_path. Disabled while saving, see xw_burst_update_button
+UI(n_ui).Control = {'UserC4', 'Style', 'VsPushButton', 'Label', 'Burst'};
+UI(n_ui).Callback = {'xw_burst_start()'};
+n_ui = n_ui + 1;
+XWBurst = struct('active', false); % burst state, see xw_burst_start
 
 % voltage sweep, only when configured (run_xam.sh --sweep); press again to stop
 if ~isempty(P.sweep_voltages)

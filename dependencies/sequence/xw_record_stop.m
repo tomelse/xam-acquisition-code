@@ -4,6 +4,7 @@ function xw_record_stop(XWRecord)
     % final recording_info.mat and reports, without blocking the acquisition.
     XWRecord.active = false;
     assignin('base', 'XWRecord', XWRecord);
+    xw_burst_update_button(); % stays disabled while files are still being written
 
     if isempty(XWRecord.pending)
         finish(XWRecord, XWRecord.pending);

@@ -26,6 +26,25 @@ All parameters are set near the top of `xAM_imaging.m`, in the struct `P`
 | `P.record_path` | `P.save_path` | Folder for **Record** recordings. Raw RF is ~190 MB per frame, so use a fast drive. |
 | `P.record_num_frames` | `20` | Initial value of the **Rec. frames** slider. |
 
+## Burst
+
+See [Burst](burst.md).
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `P.burst_voltage` | `25` | Voltage of the collapse frames [V] (initial value of **High Voltage P2**). At most `Trans.maxHighVoltage`. |
+| `P.burst_pre_frames` | `10` | Frames before the collapse frames, at the imaging voltage. |
+| `P.burst_collapse_frames` | `46` | Frames at the burst voltage. |
+| `P.burst_post_frames` | `0` | Frames after the collapse frames, at the imaging voltage. |
+| `P.burst_start_depth_mm`, `P.burst_end_depth_mm` | `2`, `14` | Image depth of the burst [mm]. |
+| `P.burst_num_tx` | `40` | Elements in the focused transmit aperture; the rays are all positions of the aperture. |
+| `P.burst_focus_mm` | `6` | Transmit focus [mm]. |
+| `P.burst_tw_half_cycles` | `7` | Length of the transmit pulse in half cycles. |
+| `P.burst_frame_delay_factor` | `10` | Time between frames, in times the time between acquisitions (`3 * depth / c * 2`). Sets the burst frame rate. |
+| `P.burst_preview_every` | `4` | Preview every n-th frame while the burst runs; `0` = none (fastest). |
+| `P.burst_confirm` | `true` | Ask for confirmation before a burst. |
+| `P.burst_settle_us` | `8000` | Time reserved for a change of the voltage [us] (0.8 to 8 ms). |
+
 ## Voltage sweep
 
 See [Voltage sweep](voltage-sweep.md). The voltages and frames per voltage are
@@ -47,7 +66,7 @@ normally set with `run_xam.sh --sweep` and `--sweep-frames`.
 | Parameter | Default | Description |
 | --- | --- | --- |
 | `P.num_accumulations` | `1` | Number of RF acquisitions summed on the hardware per transmit. Increases SNR but lowers the maximum frame rate, and can clip the signal. |
-| `P.rf_datatype` | `'int16'` | Format of the acquired RF data: `'int16'`, or `'half'` (16 bit floating point, `Receive.datatype`). Half has more dynamic range for weak signals and allows accumulating up to 512 acquisitions without overflow, but less precision for large echoes. The reconstruction multiplies half data by 256 (the system divides the 22 bit filter output by 256 before storing it as half), so images have the same scale as with int16. The data is still stored as `int16` bit patterns; see [Saving data](saving-data.md#half-rf-data). |
+| `P.rf_datatype` | `'int16'` (or `--float16`) | Format of the acquired RF data: `'int16'`, or `'half'` (16 bit floating point, `Receive.datatype`). Half has more dynamic range for weak signals and allows accumulating up to 512 acquisitions without overflow, but less precision for large echoes. The reconstruction multiplies half data by 256 (the system divides the 22 bit filter output by 256 before storing it as half), so images have the same scale as with int16. The data is still stored as `int16` bit patterns; see [Saving data](saving-data.md#half-rf-data). |
 | `P.num_chunks` | `8` | The frame is transferred and beamformed in this many groups of rays while the next rays are acquired (1 = whole frame at the end). Images are identical. Needs `num_accumulations = 1`. See [How it works](how-it-works.md). |
 | `P.use_adaptive_xwave_angle` | `true` | Lowers the xWave angle for rays near the array edges (smaller apertures), so the plane waves still cross down to the maximum depth. |
 | `P.use_half_pitch_scanning` | `true` | Places rays every half element instead of every element: twice the lateral sampling, half the maximum frame rate. |

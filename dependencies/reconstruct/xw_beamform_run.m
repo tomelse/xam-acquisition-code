@@ -42,6 +42,7 @@ function BFData = xw_beamform_run(RFData, chunk)
     % save frame to disk if recording, and advance a voltage sweep
     xw_record_frame(RFData, BFData);
     xw_sweep_frame(BFData);
+    xw_burst_update_button();
 
     % apply persistence if set
     assignin('base', 'BFData_raw', BFData); % raw BFData without persistence

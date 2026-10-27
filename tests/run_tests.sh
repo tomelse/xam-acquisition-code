@@ -84,15 +84,19 @@ if [[ $UNIT_ONLY -eq 0 ]]; then
 
     export XAM_DATA_PATH="$OUT/data"
     export XAM_SWEEP_FRAMES=2
+    export XAM_BURST_CONFIRM=0           # no confirmation dialog
+    export XAM_BURST_FRAMES="3,4,2"      # frames at the imaging voltage, at the burst voltage, at the imaging voltage
     if [[ $HARDWARE -eq 1 ]]; then
         echo "== Integration test on HARDWARE: the transducer will transmit at up to 2.5 V."
         echo "   Make sure it is in water or on a phantom."
         unset XAM_SIMULATE
         export XAM_SWEEP_VOLTAGES="1.6,2.0,2.4"   # at or below the 2.5 V start voltage
+        export XAM_BURST_VOLTAGE=1.6              # burst below the imaging voltage: no collapse, but the voltage switch is checked
     else
         echo "== Integration test in simulation"
         export XAM_SIMULATE=1
         export XAM_SWEEP_VOLTAGES="2,3"
+        export XAM_BURST_VOLTAGE=3
     fi
 
     run_matlab "$OUT/integration.log" "${XAM_TEST_TIMEOUT:-1200}" -nosplash -nodesktop \

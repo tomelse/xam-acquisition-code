@@ -28,6 +28,11 @@ function xw_sweep_start()
         return
     end
 
+    if evalin_if_exist('base', 'XWBurst', struct('active', false)).active
+        warndlg('A burst is running. Wait for it to finish.', 'Voltage sweep')
+        return
+    end
+
     TPC = evalin('base', 'TPC');
     nv = numel(P.sweep_voltages);
 
@@ -59,4 +64,5 @@ function xw_sweep_start()
         mat2str(S.voltages), S.passes, S.frames, S.mode, S.folder);
     S = xw_sweep_next_step(S);
     assignin('base', 'XWSweep', S);
+    xw_burst_update_button();
 end

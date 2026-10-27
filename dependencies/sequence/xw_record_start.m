@@ -20,6 +20,10 @@ function xw_record_start()
         warndlg('A voltage sweep is running. Press Voltage sweep to stop it first.', 'Record')
         return
     end
+    if evalin_if_exist('base', 'XWBurst', struct('active', false)).active
+        warndlg('A burst is running. Wait for it to finish.', 'Record')
+        return
+    end
     if XWRecord.active
         fprintf('Recording stopped by user after %i of %i frames\n', XWRecord.frame_count, XWRecord.num_frames);
         xw_record_stop(XWRecord);

@@ -29,7 +29,7 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `xw_setup_build_transmit` | Builds the X, L and R `TX` structures for one ray and angle: aperture size, adaptive angle, apodization. |
 | `xw_setup_compute_delays` | Transmit delays and channels for X, L and R, for integer and half-element bisectors. |
 | `xw_setup_timetag` | Enables hardware time tagging (hardware only). |
-| `xw_sequence_start` | **Start Seq.**: starts the hardware at the first acquisition event and unfreezes. |
+| `xw_sequence_start` | **Start Seq.**: starts the hardware at the first acquisition event (`EN.StartEvent`, which sets the imaging voltage) and unfreezes. |
 | `xw_sequence_save_acquisition_parameters` | Saves the sequence structs to `<save_path>/<name>_ACQ_PARAMETERS.mat`, or to a given path. |
 | `xw_change_persistence` | **Persistence** slider. |
 | `xw_change_dr` | **DR B-Mode** and **DR xAM** sliders. |
@@ -41,6 +41,12 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `xw_sweep_next_step` | Sets the voltage of the next step and its settle time. |
 | `xw_sweep_set_voltage` | Sets the TPC profile 1 voltage at runtime (as the **High Voltage P1** slider does) and updates the slider. |
 | `xw_sweep_finish` | Restores the voltage, saves `sweep_results.mat` and plots the result. |
+| `xw_burst_start` | **Burst**: checks that a burst can start, asks for confirmation, and restarts the sequence at the burst events (`EN.Burst`). |
+| `xw_burst_plan` | Voltage profile (imaging / burst) of every frame of a burst, and where the sequence switches it. |
+| `xw_setup_burst` | Focused transmits (3 pulses per ray), receive structures and Verasonics reconstruction (`PData`, `Recon`, `ReconInfo`) of the burst. |
+| `xw_burst_preview`, `xw_burst_save_image`, `xw_burst_finish` | Process functions of the burst events: preview of the latest frame, keep each reconstructed image, and save the burst and return to live imaging. |
+| `xw_burst_update_button` | Enables or disables **Burst** (not during a recording, sweep, burst or freeze). |
+| `xw_set_start_event` | Restarts the sequence at a given event (`set&Run`), used by **Start Seq.** and the burst. |
 | `xw_record_begin` | Starts a recording of a given mode, frame count and folder (used by **Record** and the sweep). |
 | `xw_record_start` | **Record**: checks disk space, creates the recording folder, starts the background threads and the recording (or stops a running one). |
 | `xw_record_frame` | Called for every frame from `xw_beamform_run`; starts a background write of the RF frame (`frame_#####.bin`) or saves `frame_#####.mat`. Limits the number of writes still running. |
@@ -92,4 +98,5 @@ written with `evalin('base', …)` / `assignin('base', …)`.
 | `BFData`, `BFData_raw` | Latest beamformed frame with and without persistence. |
 | `XWRecord` | Recording state: `active`, `mode`, `num_frames`, `frame_count`, `folder`, `pending` (background writes), `time_tags`, … |
 | `XWSweep` | Voltage sweep state: `active`, `voltages`, `step`, `phase`, `hv_set`, `mean_xam`, … |
+| `XWBurst` | Burst state: `active`, `image_count`, `plan`, `voltage`, `images`, `folder`, … |
 | `SaveDataMenuSettings` | Defaults for the save menu. |

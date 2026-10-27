@@ -31,7 +31,7 @@ function xw_sweep_frame(BFData)
                 % Measure the mean envelope (|IQ|, linear, before log
                 % compression) over the region where the plane waves cross.
                 if isempty(S.roi)
-                    S.roi = sweep_roi(evalin('base', 'P'));
+                    S.roi = xw_crossing_roi(evalin('base', 'P'));
                 end
                 k = S.phase_frames + 1;
                 S.mean_xam(p, vi, k) = mean(abs(BFData.xAM(S.roi)));
@@ -53,11 +53,4 @@ function xw_sweep_frame(BFData)
         fprintf(2, 'Sweep stopped: %s\n', e.message);
         xw_sweep_finish(S, ['error: ' e.message]);
     end
-end
-
-function roi = sweep_roi(P)
-    % Pixels where the two plane waves of each ray still cross (above the
-    % dashed line in the display), within the image depth.
-    max_depth = min(P.ray_max_image_depth, [], 1); % [1, rays], m
-    roi = P.z_axis(:) <= max_depth;               % [depth, rays]
 end
