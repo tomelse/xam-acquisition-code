@@ -64,7 +64,11 @@ function save_burst(B, status)
     plot(ax, 1:n, trace, '-o', 'LineWidth', 1.5, 'DisplayName', 'mean image');
     collapse = find(R.tpc_profile == 2);
     if ~isempty(collapse)
-        xregion(ax, collapse(1) - 0.5, collapse(end) + 0.5, 'FaceColor', [1 0.9 0.8], 'DisplayName', 'burst voltage');
+        % patch rather than xregion, which needs MATLAB R2023a or later
+        yl = ylim(ax);
+        shade = patch(ax, [collapse(1) - 0.5, collapse(end) + 0.5, collapse(end) + 0.5, collapse(1) - 0.5], ...
+            yl([1 1 2 2]), [1 0.9 0.8], 'EdgeColor', 'none', 'DisplayName', 'burst voltage');
+        uistack(shade, 'bottom');
     end
     xlabel(ax, 'Frame');
     ylabel(ax, {'Mean reconstructed intensity', 'linear [a.u.]'});
