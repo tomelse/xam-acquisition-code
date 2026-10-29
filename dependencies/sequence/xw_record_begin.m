@@ -13,8 +13,12 @@ function ok = xw_record_begin(mode, num_frames, folder)
         case 'rf'
             bytes_per_frame = Resource.RcvBuffer(1).rowsPerFrame * Resource.RcvBuffer(1).colsPerFrame * 2; % int16
         case 'images'
-            bytes_per_frame = numel(P.ray_positions) * 2 * 8 * ...
+            if isfield(P, 'image_bytes_per_frame') % other image size, e.g. xAM_imaging_RCA.m
+                bytes_per_frame = P.image_bytes_per_frame;
+            else
+                bytes_per_frame = numel(P.ray_positions) * 2 * 8 * ...
                 numel(P.image_start_depth_mm:P.scale_wvl2mm / 2:P.image_end_depth_mm) * numel(P.beamform_image_modes); % complex single, raw + persisted
+            end
     end
     bytes_needed = bytes_per_frame * num_frames;
     if ~isfolder(folder); mkdir(folder); end

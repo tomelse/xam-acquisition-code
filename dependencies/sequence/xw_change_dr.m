@@ -9,5 +9,10 @@ function xw_change_dr(src, value)
     end
     % make persistent
     assignin('base', 'UISTATES', UISTATES);
-    xw_plot(); % update plot
+    P = evalin('base', 'P');
+    if isfield(P, 'plot_function') % other display, e.g. xAM_imaging_RCA.m
+        feval(P.plot_function);
+    else
+        xw_plot(); % update plot
+    end
 end

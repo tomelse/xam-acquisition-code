@@ -31,7 +31,12 @@ function xw_sweep_frame(BFData)
                 % Measure the mean envelope (|IQ|, linear, before log
                 % compression) over the region where the plane waves cross.
                 if isempty(S.roi)
-                    S.roi = xw_crossing_roi(evalin('base', 'P'));
+                    P = evalin('base', 'P');
+                    if isfield(P, 'crossing_roi_function') % other geometry, e.g. xAM_imaging_RCA.m
+                        S.roi = feval(P.crossing_roi_function, P);
+                    else
+                        S.roi = xw_crossing_roi(P);
+                    end
                 end
                 k = S.phase_frames + 1;
                 S.mean_xam(p, vi, k) = mean(abs(BFData.xAM(S.roi)));
