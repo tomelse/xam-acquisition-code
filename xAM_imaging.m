@@ -275,7 +275,7 @@ P.max_framerate = 1e6 / P.time_per_frame;
 % ==============================================================================
 % Specify Transmit Waveform (TW) structure array
 TW(1).type = 'parametric';
-TW(1).Parameters = [P.transmit_frequency, 0.67, 2, 1];
+TW(1).Parameters = [P.transmit_frequency, 0.67, 1, 1];
 
 %% =============================================================================
 % TRANSMIT AND RECEIVE STRUCTURES
