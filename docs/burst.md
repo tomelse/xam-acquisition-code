@@ -73,8 +73,12 @@ When the burst has finished, a figure shows the burst analysis (also saved as
 vesicles intact), the mean of the subsequent frames at the same voltage
 (frames 12 to 56), and frame 11 minus that mean, so that what the burst removed,
 the gas vesicles, remains. The panels are in dB relative to the maximum of
-frame 11 (dynamic range from **DR B-Mode**); negative differences are clipped
-at zero in the display.
+frame 11 (dynamic range from **DR B-Mode**). The images are subtracted as
+reconstructed (linear intensity, not log compressed), and the difference is
+shown signed and linear (red: in frame 11 but not in the later frames, which is
+what the burst removed; blue: the opposite). Scatterers that move during the
+burst show as a streak: red where they were in frame 11, blue along the path of
+the later frames.
 
 ## Preview and frame rate
 

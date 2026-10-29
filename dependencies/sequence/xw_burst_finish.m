@@ -79,7 +79,9 @@ end
 
 function plot_analysis(B, R, D)
     % Figure of the burst analysis: the first frame at the burst voltage, the mean of the
-    % subsequent frames at the same voltage and their difference. Shown, and saved as burst_analysis.png/.fig.
+    % subsequent frames at the same voltage and their difference. The images are subtracted
+    % as reconstructed (linear intensity); only the first two panels are log compressed for display.
+    % Shown, and saved as burst_analysis.png/.fig.
     if isempty(D.difference)
         fprintf('Burst analysis skipped: frame %i and the frames after it at the burst voltage are not available\n', D.frame);
         return
@@ -92,11 +94,10 @@ function plot_analysis(B, R, D)
 
     f = figure('Name', 'xAM burst analysis', 'NumberTitle', 'off', 'Color', 'w', 'Position', [60 200 1400 520]);
     tl = tiledlayout(f, 1, 3, 'TileSpacing', 'compact');
-    panels = {D.image, D.reference_image, max(D.difference, 0)};
-    titles = {sprintf('Frame %i (%.1f V)', D.frame, R.voltage(D.frame)), ...
-        sprintf('Mean of %s (%.1f V)', ref_str, mean(R.voltage(D.reference))), ...
-        sprintf('Frame %i minus mean of %s', D.frame, ref_str)};
-    for k = 1:3
+    panels = {D.image, D.reference_image};
+    titles = {sprintf('Frame %i (%.1f V), dB', D.frame, R.voltage(D.frame)), ...
+        sprintf('Mean of %s (%.1f V), dB', ref_str, mean(R.voltage(D.reference)))};
+    for k = 1:2
         ax = nexttile(tl);
         imagesc(ax, R.x_axis, R.z_axis, to_db(panels{k}));
         caxis(ax, [-DR 0]);
@@ -107,7 +108,27 @@ function plot_analysis(B, R, D)
         ylabel(ax, 'Depth [mm]');
         title(ax, titles{k});
     end
-    title(tl, sprintf('Burst analysis (%s). dB relative to the maximum of frame %i; difference clipped at 0', R.status, D.frame), 'Interpreter', 'none');
+
+    % difference: signed, linear, red = present in frame 11 and gone later (what the burst removed)
+    ax = nexttile(tl);
+    lim = max(abs(D.difference(:)));
+    imagesc(ax, R.x_axis, R.z_axis, D.difference);
+    caxis(ax, [-lim lim]);
+    colormap(ax, diverging_map());
+    cb = colorbar(ax);
+    cb.Label.String = 'intensity [a.u.], linear';
+    daspect(ax, [1 1 1]);
+    xlabel(ax, 'Lateral position [mm]');
+    ylabel(ax, 'Depth [mm]');
+    title(ax, sprintf('Frame %i minus mean of %s', D.frame, ref_str));
+
+    title(tl, sprintf('Burst analysis (%s). Left: dB relative to the maximum of frame %i. Right: difference of the linear images', R.status, D.frame), 'Interpreter', 'none');
     exportgraphics(f, fullfile(B.folder, 'burst_analysis.png'), 'Resolution', 150);
     savefig(f, fullfile(B.folder, 'burst_analysis.fig'));
+end
+
+function map = diverging_map()
+    % blue - white - red, 256 levels
+    t = linspace(0, 1, 256)';
+    map = [min(2 * t, 1), 1 - abs(2 * t - 1), min(2 * (1 - t), 1)];
 end

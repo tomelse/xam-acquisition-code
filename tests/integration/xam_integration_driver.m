@@ -19,7 +19,7 @@ function out = xam_integration_driver(cmd)
     end
     if ~isfield(T, 'steps') % first call
         T.steps = {'wait_for_gui', 'start_sequence', 'persistence', 'dynamic_range', 'save_mode', ...
-            'record_images', 'record_rf', 'record_stop_early', 'burst', 'freeze', 'save_data_images', ...
+            'record_images', 'record_images_again', 'record_rf', 'record_rf_again', 'record_stop_early', 'burst', 'burst_again', 'freeze', 'save_data_images', ...
             'save_data_rf', 'offline_reconstruction'};
         if T.sweep, T.steps{end + 1} = 'voltage_sweep'; end
         if T.hardware, T.steps(end + 1:end + 3) = {'time_tags', 'chunk_timing', 'frame_rate'}; end
@@ -119,6 +119,24 @@ function [T, status, msg] = step_record_images(T)
             check(isfield(f, 'BFData') && isfield(f.BFData, 'xAM'), 'frame file without BFData.xAM');
         end
         msg = '3 image frames saved';
+        T.images_folder = folder;
+    end
+end
+
+function [T, status, msg] = step_record_images_again(T)
+    % a second recording in the same session: new folder, frame numbering restarts, new data
+    [T, status, msg, folder] = record_step(T, 'images', 3);
+    if strcmp(status, 'pass')
+        check(isfield(T, 'images_folder') && ~strcmp(folder, T.images_folder), 'second image recording went to the same folder');
+        a = load(fullfile(T.images_folder, 'frame_00001.mat'));
+        for k = 1:3
+            f = load(fullfile(folder, sprintf('frame_%05i.mat', k)));
+            check(isfield(f, 'BFData') && isfield(f.BFData, 'xAM'), 'frame file without BFData.xAM');
+        end
+        b = load(fullfile(folder, 'frame_00001.mat'));
+        check(~isequal(a.BFData.xAM, b.BFData.xAM), 'second recording has the same first frame as the first');
+        check(~exist(fullfile(folder, 'frame_00004.mat'), 'file'), 'second recording has more than 3 frames');
+        msg = '2nd recording: 3 image frames saved in a new folder';
     end
 end
 
@@ -131,6 +149,20 @@ function [T, status, msg] = step_record_rf(T)
         check(~isequal(RF(:, :, 1), RF(:, :, 2)), 'RF frames 1 and 2 are identical');
         msg = sprintf('3 RF frames saved and loaded (%s)', mat2str(size(RF)));
         T.rf_folder = folder; % reconstructed offline in step_offline_reconstruction
+    end
+end
+
+function [T, status, msg] = step_record_rf_again(T)
+    % a second RF recording in the same session: new folder, 3 new frames
+    [T, status, msg, folder] = record_step(T, 'rf', 3);
+    if strcmp(status, 'pass')
+        check(isfield(T, 'rf_folder') && ~strcmp(folder, T.rf_folder), 'second RF recording went to the same folder');
+        [RF, info] = xw_load_rf_recording(folder);
+        RF1 = xw_load_rf_recording(T.rf_folder);
+        check(size(RF, 3) == 3, 'expected 3 RF frames, got %i', size(RF, 3));
+        check(isequal(size(RF, [1 2]), info.frame_size), 'RF frame size does not match recording_info');
+        check(~isequal(RF(:, :, 1), RF(:, :, 2)) && ~isequal(RF(:, :, 1), RF1(:, :, 1)), 'second RF recording repeats frames of the first');
+        msg = '2nd recording: 3 RF frames saved in a new folder';
     end
 end
 
@@ -155,6 +187,22 @@ function [T, status, msg] = step_record_stop_early(T)
 end
 
 function [T, status, msg] = step_burst(T)
+    [T, status, msg] = burst_step(T);
+    if strcmp(status, 'pass'), T.burst_folder = T.folder; T.burst_mean = T.mean_images; end
+end
+
+function [T, status, msg] = step_burst_again(T)
+    % a second burst in the same session: new folder, complete and independent files, new images
+    [T, status, msg] = burst_step(T);
+    if strcmp(status, 'pass')
+        check(isfield(T, 'burst_folder') && ~strcmp(T.folder, T.burst_folder), 'second burst went to the same folder');
+        check(isfile(fullfile(T.burst_folder, 'burst.mat')), 'first burst.mat disappeared');
+        check(~isequal(T.mean_images, T.burst_mean), 'second burst has the same images as the first');
+        msg = ['2nd burst: ' msg];
+    end
+end
+
+function [T, status, msg] = burst_step(T)
     % one burst: the Burst button is disabled while it runs, the frames and the
     % voltages are saved, and live imaging continues afterwards
     [T, status, msg] = wait_phase(T);
@@ -184,6 +232,7 @@ function [T, status, msg] = step_burst(T)
             check(isfile(fullfile(T.folder, 'burst.png')) && isfile(fullfile(T.folder, 'acq_parameters.mat')), 'burst.png or acq_parameters.mat missing');
             check(isfile(fullfile(T.folder, 'burst_analysis.png')) && ~isempty(findall(groot, 'Type', 'figure', 'Name', 'xAM burst analysis')), 'burst analysis figure not made');
             check(isequal(size(B.analysis.difference), size(B.images, [1 2])) && B.analysis.frame == base('P.burst_pre_frames') + 1, 'burst analysis missing from burst.mat');
+            T.mean_images = squeeze(mean(B.images, [1 2]))';
             status = 'pass'; msg = sprintf('%i frames saved (%i at %.1f V), live imaging resumed', n, base('P.burst_collapse_frames'), base('P.burst_voltage'));
             if T.hardware && abs(base('P.burst_voltage') - base('TPC(1).hv')) > 0.5
                 % the image amplitude is proportional to the transmit voltage: the voltage was switched
