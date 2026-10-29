@@ -62,9 +62,58 @@ in the volume where the two plane waves cross).
 The code is in `dependencies/rca/`; `xw_rca_beamform_cpu` is the reference
 beamformer, run on the GPU by `xw_rca_beamform_gpu`.
 
+## Burst
+
+The **Burst** button works as for the linear array (see [Burst](burst.md)):
+`P.burst_pre_frames` frames at the imaging voltage, `P.burst_collapse_frames`
+at the burst voltage (TPC profile 2, `P.burst_voltage`, at most
+`Trans.maxHighVoltage`: 30 V for the RC15gV, 40 V for the RC6gV), then
+`P.burst_post_frames`. The burst voltage collapses gas vesicles irreversibly:
+try a short burst at 1.6 V first (`XAM_BURST_FRAMES=3,4,2 XAM_BURST_VOLTAGE=1.6`).
+
+- **Transmits**: focused (`P.burst_focus_mm`), 7 half cycles, aperture of
+  `P.burst_num_tx` elements of one half of the array, all positions of the
+  aperture as rays, three pulses per ray (all elements, odd elements off, even
+  elements off), subtracted on the hardware (`Receive.Apod = -1`) to give the AM
+  signal. The focus is in the plane of the aperture; the elements are long in
+  the other direction, which gives the sheet. As in the xAM images, the rays
+  are transmitted with one half of the array and received with the other, then
+  the halves are exchanged.
+- **Reconstruction**: the same RCA beamformer as the xAM images (volume per
+  orientation, combined into one), with the transmit delay of a focused beam
+  (the delay of the centre of the aperture + z/c). Unlike the linear array
+  (Verasonics reconstruction during the burst), the RF of every frame is copied
+  to host memory while the burst runs (`xw_rca_burst_capture`; about 20 MB per
+  frame for the RC15gV, 60 MB for the RC6gV) and the volumes are reconstructed
+  one after the other at the end of the burst, which can take a minute.
+  There is no live preview.
+- **Frame rate**: the copy of a frame takes some time, so the frame rate is
+  lower than the nominal `P.burst_frame_period`. The time at which each frame
+  was copied is saved in `burst.mat` (`host_time`); the voltage of each frame is
+  not affected.
+- **Output**: `burst.mat` has `images` [depth, second axis, first axis, frames]
+  (envelope, linear), the axes in mm, the voltages, and `analysis` (frame
+  `P.burst_pre_frames + 1` minus the mean of the next frames at the burst
+  voltage, as volumes). `burst_analysis.png/.fig` shows it as two slices of the
+  volume at the position of the largest difference; `burst.png` the mean level
+  per frame.
+
 ## Status and to be verified on the hardware
 
-- The BURST button is not in the RCA script yet.
+- Tested so far: the unit tests (`tests/unit/test_rca_*.m`, synthetic data) and
+  `tests/run_tests.sh --rca` in *simulation* on Vantage NXT 2.3.2 (all 18 steps,
+  including two bursts, record, sweep and the offline reconstruction check, with
+  the CPU beamformer). Not tested on hardware, with an RCA probe, with the GPU
+  beamformer or in simulation with the RC6gV. In simulation the linear
+  simulator is used, so it says nothing about the element mapping or the
+  geometry. On hardware: `tests/run_tests.sh --rca RC15gV --hardware` or the
+  MATLAB equivalent with `XAM_SCRIPT=xAM_imaging_RCA.m` and `XAM_PROBE=RC15gV`.
+- Burst: the sequence waits for `xw_rca_burst_capture` after every frame
+  (`waitForTransferComplete`, process, `markTransferProcessed`, as in the
+  live loop). Check that the burst runs to the end, that the frames at the burst
+  voltage are brighter by about the voltage ratio when `P.burst_voltage` differs
+  from the imaging voltage, and that the transmit delay of the focused beam
+  puts the scatterers at the right depth (a wire target).
 - Which half of the array is the "row" and which the "column" in your
   set-up: check the orientation with a wire target, and use
   `P.first_orientation`.
@@ -74,3 +123,6 @@ beamformer, run on the GPU by `xw_rca_beamform_gpu`.
   right position in both orientations.
 - Simulation mode with a row-column array (`Trans.type = 4`) has not been
   verified; see [Simulation](simulation.md).
+- Offline reconstruction of RCA recordings: `xw_rca_reconstruct_setup` and
+  `xw_rca_reconstruct_frame` do it (as `examples/reconstruct_rf.m` does for the
+  linear array); there is no example script yet.

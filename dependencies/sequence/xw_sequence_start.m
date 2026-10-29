@@ -5,7 +5,12 @@ function xw_sequence_start(hObject)
     % restarting during a burst abandons it (xw_burst_finish saves the frames so far)
     if evalin_if_exist('base', 'XWBurst', struct('active', false)).active
         fprintf('Burst aborted by restarting the sequence\n')
+        P = evalin('base', 'P');
+    if isfield(P, 'burst_finish_function') % other burst, e.g. xAM_imaging_RCA.m
+        feval(P.burst_finish_function, 'aborted', false);
+    else
         xw_burst_finish('aborted', false);
+    end
     end
 
     xw_set_start_event(EN.StartEvent); % Event number that corresponds to start sequence

@@ -19,6 +19,10 @@ function R = xw_rca_reconstruct_setup(P, Receive, Trans, TW, beamformer)
     if nargin < 5 || isempty(beamformer), beamformer = 'auto'; end
 
     G = xw_rca_geometry(Trans, P.first_orientation);
+    if ~strcmp(G.connector_source, 'Connector')
+        warning('xw_rca:connector', ['Trans.Connector is not defined: the receive channels of the elements are taken from ' ...
+            'Trans.%s. Check with a point target that the images are focused.'], G.connector_source);
+    end
 
     param.p = Trans.spacingMm * 1e-3; % element pitch [m]
     param.lambda = P.scale_wvl2mm * 1e-3;
@@ -62,29 +66,7 @@ function R = xw_rca_reconstruct_setup(P, Receive, Trans, TW, beamformer)
     R.rf_datatype = 'int16';
     if isfield(Receive, 'datatype') && ~isempty(Receive(1).datatype), R.rf_datatype = Receive(1).datatype; end
 
-    if strcmp(beamformer, 'auto')
-        if isfield(P, 'use_cpu_beamformer') && P.use_cpu_beamformer
-            beamformer = 'cpu';
-        else
-            beamformer = 'gpu';
-        end
-    end
-    switch beamformer
-        case 'cpu'
-            R.beamform = @xw_rca_beamform_cpu;
-            fprintf('Using the CPU beamformer (xw_rca_beamform_cpu)\n');
-        case 'gpu'
-            fprintf('Starting the GPU (the first time on a new GPU, MATLAB compiles its GPU libraries, which can take minutes)\n');
-            [gpu_ok, gpu_msg] = xw_beamform_gpu_available();
-            if ~gpu_ok
-                error('xw_beamform:nogpu', ['The GPU beamformer cannot run: %s.\n' ...
-                    'To use the slow CPU beamformer instead, set P.use_cpu_beamformer = true or run with --cpu-beamformer.'], gpu_msg);
-            end
-            R.beamform = @xw_rca_beamform_gpu;
-            fprintf('Using the GPU beamformer (xw_rca_beamform_gpu) on %s\n', gpu_msg);
-        otherwise
-            error('xw_rca:beamformer', 'Unknown beamformer ''%s'': use ''auto'', ''gpu'' or ''cpu''', beamformer);
-    end
+    [R.beamform, beamformer] = xw_rca_choose_beamformer(P, beamformer);
     R.beamformer = beamformer;
 
     % groups of rays for xw_rca_reconstruct_chunk, with their delay tables (kept on the GPU)

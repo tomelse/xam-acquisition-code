@@ -224,19 +224,25 @@ function [T, status, msg] = burst_step(T)
             B = load(fullfile(T.folder, 'burst.mat'));
             n = base('P.burst_pre_frames') + base('P.burst_collapse_frames') + base('P.burst_post_frames');
             check(strcmp(B.status, 'complete'), 'burst status: %s', B.status);
-            check(size(B.images, 3) == n, 'expected %i burst frames, got %i', n, size(B.images, 3));
-            check(all(isfinite(B.images(:))) && any(B.images(:) > 0) && ~isequal(B.images(:, :, 1), B.images(:, :, 2)), 'burst images are empty or identical');
-            check(size(B.images, 2) == numel(B.x_axis) && size(B.images, 1) == numel(B.z_axis), 'image size does not match the axes');
+            nf = size(B.images, ndims(B.images)); % frames are the last dimension: [depth, lateral, frames], or [depth, second axis, first axis, frames] (RCA)
+            flat = reshape(B.images, [], nf);
+            check(nf == n, 'expected %i burst frames, got %i', n, nf);
+            check(all(isfinite(flat(:))) && any(flat(:) > 0) && ~isequal(flat(:, 1), flat(:, 2)), 'burst images are empty or identical');
+            if isfield(B, 'axis_first')
+                check(isequal(size(B.images, 1:3), [numel(B.z_axis), numel(B.axis_second), numel(B.axis_first)]), 'volume size does not match the axes');
+            else
+                check(size(B.images, 2) == numel(B.x_axis) && size(B.images, 1) == numel(B.z_axis), 'image size does not match the axes');
+            end
             check(isequal(B.tpc_profile, [ones(1, base('P.burst_pre_frames')), 2 * ones(1, base('P.burst_collapse_frames')), ones(1, base('P.burst_post_frames'))]), ...
                 'TPC profiles of the frames: %s', mat2str(B.tpc_profile));
             check(isfile(fullfile(T.folder, 'burst.png')) && isfile(fullfile(T.folder, 'acq_parameters.mat')), 'burst.png or acq_parameters.mat missing');
             check(isfile(fullfile(T.folder, 'burst_analysis.png')) && ~isempty(findall(groot, 'Type', 'figure', 'Name', 'xAM burst analysis')), 'burst analysis figure not made');
-            check(isequal(size(B.analysis.difference), size(B.images, [1 2])) && B.analysis.frame == base('P.burst_pre_frames') + 1, 'burst analysis missing from burst.mat');
-            T.mean_images = squeeze(mean(B.images, [1 2]))';
+            check(isequal(size(B.analysis.difference), size(B.images, 1:ndims(B.images) - 1)) && B.analysis.frame == base('P.burst_pre_frames') + 1, 'burst analysis missing from burst.mat');
+            T.mean_images = mean(flat, 1);
             status = 'pass'; msg = sprintf('%i frames saved (%i at %.1f V), live imaging resumed', n, base('P.burst_collapse_frames'), base('P.burst_voltage'));
             if T.hardware && abs(base('P.burst_voltage') - base('TPC(1).hv')) > 0.5
                 % the image amplitude is proportional to the transmit voltage: the voltage was switched
-                m = squeeze(mean(B.images, [1 2]))';
+                m = mean(flat, 1);
                 ratio = mean(m(B.tpc_profile == 2)) / mean(m(B.tpc_profile == 1));
                 expected = base('P.burst_voltage') / base('TPC(1).hv');
                 check(abs(ratio / expected - 1) < 0.3, 'image level at the burst voltage is %.2f x the imaging level, expected about %.2f', ratio, expected);
@@ -251,10 +257,11 @@ function [T, status, msg] = step_freeze(T)
         case 0
             set_freeze(1); T.phase = 1; T.tp = tic;
         case 1
-            if toc(T.tp) < 2, return; end % let a frame in flight finish
+            % let a frame in flight finish (slow beamformers: a frame can take longer than 2 s)
+            if toc(T.tp) < max(2, 1.5 * xw_get(T, 'frame_interval', 0)), return; end
             T.f0 = T.frames; T.phase = 2; T.tp = tic;
         case 2
-            if toc(T.tp) < 3, return; end
+            if toc(T.tp) < max(3, 1.5 * xw_get(T, 'frame_interval', 0)), return; end
             check(T.frames == T.f0, '%i frames processed while frozen', T.frames - T.f0);
             set_freeze(0); T.f0 = T.frames; T.phase = 3;
         case 3
@@ -276,14 +283,28 @@ function [T, status, msg] = step_offline_reconstruction(T)
     S = load(fullfile(T.out, 'snapshots', 'snapshot_rf.mat'), 'P', 'Receive', 'Trans', 'TW', 'RcvData', 'BFData_raw');
     check(isfield(S, 'BFData_raw') && isfield(S, 'RcvData'), 'RF snapshot without BFData_raw or RcvData');
     check(S.P.num_chunks > 1, 'the live view did not reconstruct in chunks (P.num_chunks = %i)', S.P.num_chunks);
-    R = xw_reconstruct_setup(S.P, S.Receive, S.Trans, S.TW);
+    rca = isfield(S.P, 'burst_finish_function'); % the row-column array script (xAM_imaging_RCA.m)
+    if rca
+        R = xw_rca_reconstruct_setup(S.P, S.Receive, S.Trans, S.TW);
+    else
+        R = xw_reconstruct_setup(S.P, S.Receive, S.Trans, S.TW);
+    end
     d = inf(1, size(S.RcvData{1}, 3));
     for f = 1:numel(d)
-        B = xw_reconstruct_frame(R, S.RcvData{1}(:, :, f));
+        if rca
+            B = xw_rca_reconstruct_frame(R, S.RcvData{1}(:, :, f));
+        else
+            B = xw_reconstruct_frame(R, S.RcvData{1}(:, :, f));
+        end
         d(f) = max(cellfun(@(m) max(abs(B.(m)(:) - S.BFData_raw.(m)(:))) / max(abs(S.BFData_raw.(m)(:))), R.modes));
     end
     [dmin, fbest] = min(d);
     check(dmin < 1e-6, 'no buffer frame reproduces the live image (smallest difference %.2g)', dmin);
+    if rca % no example script for the row-column array yet
+        status = 'pass';
+        msg = sprintf('buffer frame %i matches the live image (difference %.1g)', fbest, dmin);
+        return
+    end
     % 2) the example script on the RF recording made in step_record_rf
     check(isfield(T, 'rf_folder'), 'no RF recording from step record_rf');
     E = run_reconstruct_example(fullfile(T.repo, 'examples', 'reconstruct_rf.m'), T.rf_folder);
@@ -446,7 +467,11 @@ function T = count_frames(T)
     try
         B = evalin('base', 'BFData_raw');
         sig = sum(abs(double(B.xAM(:)))) + double(B.TimeTag);
-        if ~isequaln(sig, T.sig), T.sig = sig; T.frames = T.frames + 1; end
+        if ~isequaln(sig, T.sig)
+            t_now = posixtime(datetime('now'));
+            if isfield(T, 't_frame') && T.frames > 0, T.frame_interval = t_now - T.t_frame; end % time between the last two frames
+            T.t_frame = t_now; T.sig = sig; T.frames = T.frames + 1;
+        end
     catch
     end
 end
@@ -568,4 +593,9 @@ end
 
 function v = ternary(c, a, b)
     if c, v = a; else, v = b; end
+end
+
+function v = xw_get(s, name, default)
+    v = default;
+    if isfield(s, name) && ~isempty(s.(name)), v = s.(name); end
 end

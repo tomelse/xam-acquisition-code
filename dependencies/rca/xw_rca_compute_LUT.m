@@ -22,10 +22,6 @@ function LUT = xw_rca_compute_LUT(z_vector, P, param, G, Trans, TW)
     toffset = TW(1).peak / (Trans.frequency * 1e6) + 2 * Trans.lensCorrection * 1e-3 / c;
     LUT.RX = cell(1, 2);
     for o = 1:2
-        x_out = reshape(P.out_axis{o}, 1, []); % [1, Nx] [m]
-        x_el = reshape(G.rx_pos{o} * 1e-3, 1, 1, []); % [1, 1, nEl] [m]
-        d = abs(x_out - x_el); % [1, Nx, nEl]
-        in_fnumber = d < z / param.f / 2; % [Nz, Nx, nEl]
-        LUT.RX{o} = (sqrt(z .^ 2 + d .^ 2) / c + toffset) .* in_fnumber;
+        LUT.RX{o} = xw_rca_rx_lut(z, P.out_axis{o}, G.rx_pos{o} * 1e-3, param.f, c, toffset);
     end
 end
